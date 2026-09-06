@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Mid-Cap Stock Analysis{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="bi bi-speedometer2"></i> Market Dashboard</h1>
+        <p class="text-muted">Overview of mid-cap stock market and top picks</p>
+    </div>
+</div>
+
+<!-- Market Summary Cards -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h4><i class="bi bi-globe"></i> Market Indices</h4>
+    </div>
+    {% for name, data in market_summary.items() %}
+    <div class="col-md-3 mb-3">
+        <div class="card market-card">
+            <div class="card-body">
+                <h6 class="card-title">{{ name }}</h6>
+                <h4 class="mb-0">{{ "%.2f"|format(data.price) }}</h4>
+                <span class="{% if data.change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    <i class="bi bi-arrow-{% if data.change >= 0 %}up{% else %}down{% endif %}"></i>
+                    {{ "%.2f"|format(data.change) }}%
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-funnel display-4"></i>
+                <h5>Stock Screener</h5>
+                <p>Filter 100+ mid-cap stocks by fundamentals</p>
+                <a href="/screener" class="btn btn-light">Open Screener</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-search display-4"></i>
+                <h5>Research Reports</h5>
+                <p>Generate detailed analysis with technicals</p>
+                <a href="/research" class="btn btn-light">Open Research</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-bar-chart display-4"></i>
+                <h5>Backtesting</h5>
+                <p>Test strategies on historical data</p>
+                <a href="/backtest" class="btn btn-light">Open Backtester</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Picks -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-trophy"></i> Top Mid-Cap Picks</h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadTopPicks()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="top-picks-loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading top picks...</p>
+                </div>
+                <div id="top-picks-table" class="table-responsive" style="display: none;">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Name</th>
+                                <th>Sector</th>
+                                <th>Price</th>
+                                <th>Market Cap</th>
+                                <th>P/E</th>
+                                <th>Upside %</th>
+                                <th>Revenue Growth</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="top-picks-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sector Analysis -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Sector Analysis</h5>
+            </div>
+            <div class="card-body">
+                <div id="sector-loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading sector analysis...</p>
+                </div>
+                <div id="sector-table" class="table-responsive" style="display: none;">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Sector</th>
+                                <th>Count</th>
+                                <th>Avg Market Cap ($B)</th>
+                                <th>Avg P/E</th>
+                                <th>Avg Revenue Growth %</th>
+                                <th>Avg ROE %</th>
+                                <th>Avg Upside %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sector-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Chart -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Quick Chart</h5>
+                <div class="d-flex gap-2">
+                    <input type="text" id="quick-chart-symbol" class="form-control form-control-sm" placeholder="Enter symbol (e.g., SNOW)" style="width: 150px;">
+                    <select id="quick-chart-period" class="form-select form-select-sm" style="width: 100px;">
+                        <option value="6mo">6 Months</option>
+                        <option value="1y" selected>1 Year</option>
+                        <option value="2y">2 Years</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary" onclick="loadQuickChart()">
+                        <i class="bi bi-search"></i> Go
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="quick-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadTopPicks();
+    loadSectorAnalysis();
+});
+
+function loadTopPicks() {
+    document.getElementById('top-picks-loading').style.display = 'block';
+    document.getElementById('top-picks-table').style.display = 'none';
+    
+    fetch('/api/top_picks?n=15')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('top-picks-body');
+            tbody.innerHTML = '';
+            
+            data.stocks.forEach(stock => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${stock.symbol}</strong></td>
+                    <td>${stock.name}</td>
+                    <td><span class="badge bg-secondary">${stock.sector}</span></td>
+                    <td>$${stock.current_price}</td>
+                    <td>$${stock.market_cap_b}B</td>
+                    <td>${stock.pe_ratio}</td>
+                    <td class="${stock.upside_potential > 0 ? 'text-success' : 'text-danger'}">
+                        ${stock.upside_potential > 0 ? '+' : ''}${stock.upside_potential}%
+                    </td>
+                    <td class="${stock.revenue_growth > 0 ? 'text-success' : 'text-danger'}">
+                        ${stock.revenue_growth > 0 ? '+' : ''}${stock.revenue_growth}%
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewResearch('${stock.symbol}')">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('top-picks-loading').style.display = 'none';
+            document.getElementById('top-picks-table').style.display = 'block';
+        })
+        .catch(err => {
+            console.error('Error loading top picks:', err);
+            document.getElementById('top-picks-loading').innerHTML = '<p class="text-danger">Error loading data</p>';
+        });
+}
+
+function loadSectorAnalysis() {
+    document.getElementById('sector-loading').style.display = 'block';
+    document.getElementById('sector-table').style.display = 'none';
+    
+    fetch('/api/sector_analysis')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('sector-body');
+            tbody.innerHTML = '';
+            
+            for (const [sector, stats] of Object.entries(data.sectors)) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${sector}</strong></td>
+                    <td>${stats['Count']}</td>
+                    <td>$${stats['Avg Market Cap ($B)']}B</td>
+                    <td>${stats['Avg P/E'].toFixed(1)}</td>
+                    <td class="${stats['Avg Revenue Growth %'] > 0 ? 'text-success' : 'text-danger'}">
+                        ${stats['Avg Revenue Growth %'].toFixed(1)}%
+                    </td>
+                    <td class="${stats['Avg ROE %'] > 0 ? 'text-success' : 'text-danger'}">
+                        ${stats['Avg ROE %'].toFixed(1)}%
+                    </td>
+                    <td class="${stats['Avg Upside %'] > 0 ? 'text-success' : 'text-danger'}">
+                        ${stats['Avg Upside %'].toFixed(1)}%
+                    </td>
+                `;
+                tbody.appendChild(row);
+            }
+            
+            document.getElementById('sector-loading').style.display = 'none';
+            document.getElementById('sector-table').style.display = 'block';
+        })
+        .catch(err => {
+            console.error('Error loading sector analysis:', err);
+            document.getElementById('sector-loading').innerHTML = '<p class="text-danger">Error loading data</p>';
+        });
+}
+
+function loadQuickChart() {
+    const symbol = document.getElementById('quick-chart-symbol').value.toUpperCase();
+    const period = document.getElementById('quick-chart-period').value;
+    
+    if (!symbol) {
+        alert('Please enter a stock symbol');
+        return;
+    }
+    
+    fetch(`/api/chart/${symbol}?period=${period}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            const chartData = JSON.parse(data.chart);
+            Plotly.newPlot('quick-chart', chartData.data, chartData.layout);
+        })
+        .catch(err => {
+            console.error('Error loading chart:', err);
+            alert('Error loading chart data');
+        });
+}
+
+function viewResearch(symbol) {
+    window.location.href = `/research?symbol=${symbol}`;
+}
+</script>
+{% endblock %}

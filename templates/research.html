@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}Research - Mid-Cap Stock Analysis{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="bi bi-search"></i> Stock Research</h1>
+        <p class="text-muted">Generate comprehensive research reports with technical analysis</p>
+    </div>
+</div>
+
+<!-- Search -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <input type="text" id="research-symbol" class="form-control form-control-lg" placeholder="Enter stock symbol (e.g., SNOW)">
+                            <button class="btn btn-primary" onclick="loadResearch()">
+                                <i class="bi bi-search"></i> Research
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <p class="text-muted mb-0">Popular mid-cap: SNOW, ZM, DDOG, PLTR, RBLX, MRNA, PTON, SHOP, SPOT, ROKU</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="research-loading" class="text-center py-5" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="mt-2">Generating research report...</p>
+</div>
+
+<!-- Report Content -->
+<div id="research-content" style="display: none;">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 id="report-symbol">SYMBOL</h2>
+            <h4 id="report-name" class="text-muted">Company Name</h4>
+            <span id="report-sector" class="badge bg-secondary">Sector</span>
+            <span id="report-rating" class="badge">Rating</span>
+        </div>
+        <div class="col-md-4 text-end">
+            <h2 id="report-price" class="mb-0">$0.00</h2>
+            <p id="report-score" class="text-muted">Score: 0/100</p>
+        </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-clipboard-data"></i> Analysis Summary</h5>
+                </div>
+                <div class="card-body">
+                    <p id="report-summary" class="mb-0"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signals -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-lightbulb"></i> Key Signals</h5>
+                </div>
+                <div class="card-body">
+                    <div id="report-signals"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fundamentals & Technicals -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5><i class="bi bi-bank"></i> Fundamentals</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm" id="fundamentals-table">
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5><i class="bi bi-activity"></i> Technicals</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm" id="technicals-table">
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-graph-up"></i> Performance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="performance-metrics">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="bi bi-candlestick"></i> Price Chart</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="loadChart('6mo')">6M</button>
+                        <button class="btn btn-outline-secondary active" onclick="loadChart('1y')">1Y</button>
+                        <button class="btn btn-outline-secondary" onclick="loadChart('2y')">2Y</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="research-chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Placeholder -->
+<div id="research-placeholder" class="text-center py-5 text-muted">
+    <i class="bi bi-search display-1"></i>
+    <p class="mt-2">Enter a stock symbol to generate a research report</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentSymbol = '';
+
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const symbol = urlParams.get('symbol');
+    if (symbol) {
+        document.getElementById('research-symbol').value = symbol;
+        loadResearch();
+    }
+});
+
+function loadResearch() {
+    const symbol = document.getElementById('research-symbol').value.toUpperCase();
+    if (!symbol) {
+        alert('Please enter a stock symbol');
+        return;
+    }
+    
+    currentSymbol = symbol;
+    
+    document.getElementById('research-loading').style.display = 'block';
+    document.getElementById('research-content').style.display = 'none';
+    document.getElementById('research-placeholder').style.display = 'none';
+    
+    fetch(`/api/research/${symbol}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+                document.getElementById('research-loading').style.display = 'none';
+                document.getElementById('research-placeholder').style.display = 'block';
+                return;
+            }
+            
+            displayReport(data);
+            loadChart('1y');
+            
+            document.getElementById('research-loading').style.display = 'none';
+            document.getElementById('research-content').style.display = 'block';
+        })
+        .catch(err => {
+            console.error('Error loading research:', err);
+            document.getElementById('research-loading').innerHTML = '<p class="text-danger">Error loading research</p>';
+        });
+}
+
+function displayReport(report) {
+    // Header
+    document.getElementById('report-symbol').textContent = report.symbol;
+    document.getElementById('report-name').textContent = report.name;
+    document.getElementById('report-sector').textContent = report.sector;
+    document.getElementById('report-price').textContent = '$' + report.technicals.current_price;
+    document.getElementById('report-score').textContent = 'Score: ' + report.analysis.score + '/100';
+    
+    const ratingBadge = document.getElementById('report-rating');
+    ratingBadge.textContent = report.analysis.rating;
+    ratingBadge.className = 'badge ' + getRatingClass(report.analysis.rating);
+    
+    // Summary
+    document.getElementById('report-summary').textContent = report.analysis.summary;
+    
+    // Signals
+    const signalsDiv = document.getElementById('report-signals');
+    signalsDiv.innerHTML = '';
+    report.analysis.signals.forEach(signal => {
+        const badge = document.createElement('span');
+        badge.className = 'badge bg-info me-2 mb-2';
+        badge.textContent = signal;
+        signalsDiv.appendChild(badge);
+    });
+    
+    // Fundamentals
+    const fundTable = document.getElementById('fundamentals-table');
+    const fund = report.fundamentals;
+    fundTable.innerHTML = `
+        <tr><td>Market Cap</td><td>$${fund.market_cap_b}B</td></tr>
+        <tr><td>P/E Ratio</td><td>${fund.pe_ratio || 'N/A'}</td></tr>
+        <tr><td>Forward P/E</td><td>${fund.forward_pe || 'N/A'}</td></tr>
+        <tr><td>PEG Ratio</td><td>${fund.peg_ratio || 'N/A'}</td></tr>
+        <tr><td>Price/Book</td><td>${fund.price_to_book || 'N/A'}</td></tr>
+        <tr><td>Dividend Yield</td><td>${fund.dividend_yield}%</td></tr>
+        <tr><td>Beta</td><td>${fund.beta}</td></tr>
+        <tr><td>EPS</td><td>$${fund.eps}</td></tr>
+        <tr><td>Target Price</td><td>$${fund.target_price}</td></tr>
+        <tr><td>Analyst Rec</td><td>${fund.recommendation}</td></tr>
+        <tr><td>Profit Margins</td><td>${fund.profit_margins}%</td></tr>
+        <tr><td>Revenue Growth</td><td class="${fund.revenue_growth > 0 ? 'text-success' : 'text-danger'}">${fund.revenue_growth}%</td></tr>
+        <tr><td>Debt/Equity</td><td>${fund.debt_to_equity}</td></tr>
+        <tr><td>Current Ratio</td><td>${fund.current_ratio}</td></tr>
+        <tr><td>ROE</td><td class="${fund.return_on_equity > 0 ? 'text-success' : 'text-danger'}">${fund.return_on_equity}%</td></tr>
+    `;
+    
+    // Technicals
+    const techTable = document.getElementById('technicals-table');
+    const tech = report.technicals;
+    techTable.innerHTML = `
+        <tr><td>SMA 20</td><td>$${tech.sma_20}</td></tr>
+        <tr><td>SMA 50</td><td>$${tech.sma_50}</td></tr>
+        <tr><td>SMA 200</td><td>$${tech.sma_200}</td></tr>
+        <tr><td>RSI (14)</td><td class="${tech.rsi > 70 ? 'text-danger' : tech.rsi < 30 ? 'text-success' : ''}">${tech.rsi}</td></tr>
+        <tr><td>MACD</td><td>${tech.macd}</td></tr>
+        <tr><td>BB Upper</td><td>$${tech.bb_upper}</td></tr>
+        <tr><td>BB Lower</td><td>$${tech.bb_lower}</td></tr>
+        <tr><td>ATR</td><td>$${tech.atr}</td></tr>
+        <tr><td>Volume Ratio</td><td>${tech.volume_ratio}</td></tr>
+        <tr><td>vs SMA 20</td><td class="${tech.price_vs_sma20 > 0 ? 'text-success' : 'text-danger'}">${tech.price_vs_sma20 > 0 ? '+' : ''}${tech.price_vs_sma20}%</td></tr>
+        <tr><td>vs SMA 50</td><td class="${tech.price_vs_sma50 > 0 ? 'text-success' : 'text-danger'}">${tech.price_vs_sma50 > 0 ? '+' : ''}${tech.price_vs_sma50}%</td></tr>
+        <tr><td>vs SMA 200</td><td class="${tech.price_vs_sma200 > 0 ? 'text-success' : 'text-danger'}">${tech.price_vs_sma200 > 0 ? '+' : ''}${tech.price_vs_sma200}%</td></tr>
+    `;
+    
+    // Performance
+    const perfDiv = document.getElementById('performance-metrics');
+    const perf = report.performance;
+    perfDiv.innerHTML = `
+        <div class="col-md-2 col-4 mb-3 text-center">
+            <h6>1 Week</h6>
+            <span class="${perf.returns['1_week'] > 0 ? 'text-success' : 'text-danger'}">${perf.returns['1_week'] ? (perf.returns['1_week'] > 0 ? '+' : '') + perf.returns['1_week'] + '%' : 'N/A'}</span>
+        </div>
+        <div class="col-md-2 col-4 mb-3 text-center">
+            <h6>1 Month</h6>
+            <span class="${perf.returns['1_month'] > 0 ? 'text-success' : 'text-danger'}">${perf.returns['1_month'] ? (perf.returns['1_month'] > 0 ? '+' : '') + perf.returns['1_month'] + '%' : 'N/A'}</span>
+        </div>
+        <div class="col-md-2 col-4 mb-3 text-center">
+            <h6>3 Months</h6>
+            <span class="${perf.returns['3_months'] > 0 ? 'text-success' : 'text-danger'}">${perf.returns['3_months'] ? (perf.returns['3_months'] > 0 ? '+' : '') + perf.returns['3_months'] + '%' : 'N/A'}</span>
+        </div>
+        <div class="col-md-2 col-4 mb-3 text-center">
+            <h6>6 Months</h6>
+            <span class="${perf.returns['6_months'] > 0 ? 'text-success' : 'text-danger'}">${perf.returns['6_months'] ? (perf.returns['6_months'] > 0 ? '+' : '') + perf.returns['6_months'] + '%' : 'N/A'}</span>
+        </div>
+        <div class="col-md-2 col-4 mb-3 text-center">
+            <h6>1 Year</h6>
+            <span class="${perf.returns['1_year'] > 0 ? 'text-success' : 'text-danger'}">${perf.returns['1_year'] ? (perf.returns['1_year'] > 0 ? '+' : '') + perf.returns['1_year'] + '%' : 'N/A'}</span>
+        </div>
+        <div class="col-md-2 col-4 mb-3 text-center">
+            <h6>Volatility</h6>
+            <span>${perf.volatility}%</span>
+        </div>
+        <div class="col-md-2 col-4 mb-3 text-center">
+            <h6>Sharpe</h6>
+            <span class="${perf.sharpe_ratio > 1 ? 'text-success' : ''}">${perf.sharpe_ratio}</span>
+        </div>
+        <div class="col-md-2 col-4 mb-3 text-center">
+            <h6>Max DD</h6>
+            <span class="text-danger">${perf.max_drawdown}%</span>
+        </div>
+        <div class="col-md-2 col-4 mb-3 text-center">
+            <h6>52W High</h6>
+            <span>$${perf.high_52w}</span>
+        </div>
+        <div class="col-md-2 col-4 mb-3 text-center">
+            <h6>52W Low</h6>
+            <span>$${perf.low_52w}</span>
+        </div>
+    `;
+}
+
+function loadChart(period) {
+    if (!currentSymbol) return;
+    
+    fetch(`/api/chart/${currentSymbol}?period=${period}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) return;
+            const chartData = JSON.parse(data.chart);
+            Plotly.newPlot('research-chart', chartData.data, chartData.layout);
+        })
+        .catch(err => console.error('Error loading chart:', err));
+}
+
+function getRatingClass(rating) {
+    switch(rating) {
+        case 'STRONG BUY': return 'bg-success';
+        case 'BUY': return 'bg-primary';
+        case 'HOLD': return 'bg-warning';
+        case 'SELL': return 'bg-danger';
+        case 'STRONG SELL': return 'bg-danger';
+        default: return 'bg-secondary';
+    }
+}
+</script>
+{% endblock %}

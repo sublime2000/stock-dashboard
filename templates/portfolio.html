@@ -1,0 +1,774 @@
+{% extends "base.html" %}
+
+{% block title %}Portfolio - Mid-Cap Stock Analysis{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="bi bi-briefcase"></i> Portfolio Management</h1>
+        <p class="text-muted">Track positions, execute trades, and monitor performance</p>
+    </div>
+</div>
+
+<!-- Portfolio Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card bg-primary text-white">
+            <div class="card-body">
+                <h6>Total Value</h6>
+                <h3 id="total-value">$0.00</h3>
+                <small id="total-pnl" class="text-white-50">+$0.00 (+0.00%)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card bg-success text-white">
+            <div class="card-body">
+                <h6>Cash Balance</h6>
+                <h3 id="cash-balance">$0.00</h3>
+                <small class="text-white-50">Buying Power</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card bg-info text-white">
+            <div class="card-body">
+                <h6>Day P&L</h6>
+                <h3 id="day-pnl">$0.00</h3>
+                <small class="text-white-50">Today's Change</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card bg-warning text-dark">
+            <div class="card-body">
+                <h6>Positions</h6>
+                <h3 id="position-count">0</h3>
+                <small class="text-dark-50">Open Positions</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trade Execution -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> Trade Execution</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="form-label">Symbol</label>
+                        <input type="text" id="trade-symbol" class="form-control" placeholder="AAPL">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Action</label>
+                        <select id="trade-action" class="form-select">
+                            <option value="BUY">Buy</option>
+                            <option value="SELL">Sell</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Shares</label>
+                        <input type="number" id="trade-shares" class="form-control" value="10" min="1">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Price (optional)</label>
+                        <input type="number" id="trade-price" class="form-control" placeholder="Market">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button class="btn btn-primary w-100" onclick="executeTrade()">
+                            <i class="bi bi-lightning"></i> Execute
+                        </button>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button class="btn btn-outline-secondary w-100" onclick="getQuote()">
+                            <i class="bi bi-search"></i> Quote
+                        </button>
+                    </div>
+                </div>
+                <div id="trade-result" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Positions & Equity Curve -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-table"></i> Current Positions</h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadPortfolio()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Shares</th>
+                                <th>Avg Price</th>
+                                <th>Current</th>
+                                <th>Market Value</th>
+                                <th>Unrealized P&L</th>
+                                <th>Day Change</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positions-body">
+                            <tr><td colspan="8" class="text-center text-muted">No positions yet</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Sector Allocation</h5>
+            </div>
+            <div class="card-body">
+                <div id="allocation-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Equity Curve & Performance -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Portfolio Equity Curve</h5>
+            </div>
+            <div class="card-body">
+                <div id="equity-chart"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-speedometer2"></i> Performance Metrics</h5>
+            </div>
+            <div class="card-body">
+                <div id="performance-metrics">
+                    <div class="text-center text-muted py-4">Loading metrics...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transactions & Orders -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Transactions</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive" style="max-height: 300px;">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Symbol</th>
+                                <th>Type</th>
+                                <th>Shares</th>
+                                <th>Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-body">
+                            <tr><td colspan="6" class="text-center text-muted">No transactions</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-list-check"></i> Order History</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive" style="max-height: 300px;">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Symbol</th>
+                                <th>Type</th>
+                                <th>Shares</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-body">
+                            <tr><td colspan="6" class="text-center text-muted">No orders</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Watchlist & Alerts -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-star"></i> Watchlist</h5>
+                <div class="d-flex gap-2">
+                    <input type="text" id="watchlist-symbol" class="form-control form-control-sm" placeholder="Symbol" style="width: 100px;">
+                    <button class="btn btn-sm btn-primary" onclick="addToWatchlist()">
+                        <i class="bi bi-plus"></i> Add
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Name</th>
+                                <th>Price</th>
+                                <th>Change</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="watchlist-body">
+                            <tr><td colspan="5" class="text-center text-muted">Watchlist is empty</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-bell"></i> Price Alerts</h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="checkAlerts()">
+                    <i class="bi bi-bell"></i> Check
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3">
+                        <input type="text" id="alert-symbol" class="form-control form-control-sm" placeholder="Symbol">
+                    </div>
+                    <div class="col-md-3">
+                        <select id="alert-condition" class="form-select form-select-sm">
+                            <option value="above">Above</option>
+                            <option value="below">Below</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="number" id="alert-price" class="form-control form-control-sm" placeholder="Target price">
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-sm btn-primary w-100" onclick="createAlert()">
+                            <i class="bi bi-plus"></i> Create
+                        </button>
+                    </div>
+                </div>
+                <div class="table-responsive" style="max-height: 200px;">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Condition</th>
+                                <th>Target</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alerts-body">
+                            <tr><td colspan="5" class="text-center text-muted">No alerts</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadPortfolio();
+    loadTransactions();
+    loadOrders();
+    loadWatchlist();
+    loadAlerts();
+});
+
+function loadPortfolio() {
+    fetch('/api/portfolio/summary')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-value').textContent = '$' + data.total_value.toLocaleString();
+            document.getElementById('cash-balance').textContent = '$' + data.cash.toLocaleString();
+            document.getElementById('day-pnl').textContent = (data.day_pnl >= 0 ? '+' : '') + '$' + data.day_pnl.toLocaleString();
+            document.getElementById('position-count').textContent = data.position_count;
+            
+            const pnlEl = document.getElementById('total-pnl');
+            pnlEl.textContent = (data.total_pnl >= 0 ? '+' : '') + '$' + data.total_pnl.toLocaleString() + ' (' + (data.total_pnl_pct >= 0 ? '+' : '') + data.total_pnl_pct + '%)';
+            pnlEl.className = data.total_pnl >= 0 ? 'text-white-50' : 'text-danger';
+            
+            // Render positions
+            const tbody = document.getElementById('positions-body');
+            tbody.innerHTML = '';
+            
+            if (data.positions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No positions yet</td></tr>';
+            } else {
+                data.positions.forEach(pos => {
+                    const row = document.createElement('tr');
+                    const pnlClass = pos.unrealized_pnl >= 0 ? 'text-success' : 'text-danger';
+                    const dayClass = pos.day_change >= 0 ? 'text-success' : 'text-danger';
+                    row.innerHTML = `
+                        <td><strong>${pos.symbol}</strong></td>
+                        <td>${pos.shares}</td>
+                        <td>$${pos.avg_price}</td>
+                        <td>$${pos.current_price}</td>
+                        <td>$${pos.market_value.toLocaleString()}</td>
+                        <td class="${pnlClass}">${pos.unrealized_pnl >= 0 ? '+' : ''}$${pos.unrealized_pnl.toLocaleString()} (${pos.unrealized_pnl_pct >= 0 ? '+' : ''}${pos.unrealized_pnl_pct}%)</td>
+                        <td class="${dayClass}">${pos.day_change >= 0 ? '+' : ''}${pos.day_change}%</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-success" onclick="quickTrade('${pos.symbol}', 'BUY')">Buy</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="quickTrade('${pos.symbol}', 'SELL')">Sell</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+            
+            // Render allocation chart
+            renderAllocationChart(data.allocation);
+        })
+        .catch(err => console.error('Error loading portfolio:', err));
+    
+    // Load equity curve
+    fetch('/api/portfolio/equity_curve')
+        .then(response => response.json())
+        .then(data => {
+            renderEquityChart(data.equity_curve);
+        })
+        .catch(err => console.error('Error loading equity curve:', err));
+    
+    // Load performance metrics
+    fetch('/api/portfolio/performance')
+        .then(response => response.json())
+        .then(data => {
+            renderPerformanceMetrics(data);
+        })
+        .catch(err => console.error('Error loading performance:', err));
+}
+
+function renderAllocationChart(allocation) {
+    const labels = Object.keys(allocation);
+    const values = Object.values(allocation);
+    
+    if (labels.length === 0) {
+        document.getElementById('allocation-chart').innerHTML = '<p class="text-center text-muted py-4">No allocation data</p>';
+        return;
+    }
+    
+    const data = [{
+        type: 'pie',
+        labels: labels,
+        values: values,
+        hole: 0.4,
+        marker: {
+            colors: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac']
+        }
+    }];
+    
+    const layout = {
+        height: 300,
+        margin: { t: 10, b: 10, l: 10, r: 10 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#e0e0e0' },
+        showlegend: true
+    };
+    
+    Plotly.newPlot('allocation-chart', data, layout, {responsive: true});
+}
+
+function renderEquityChart(equityCurve) {
+    if (!equityCurve || equityCurve.length < 2) {
+        document.getElementById('equity-chart').innerHTML = '<p class="text-center text-muted py-4">Not enough data for equity curve</p>';
+        return;
+    }
+    
+    const dates = equityCurve.map(p => p.date);
+    const values = equityCurve.map(p => p.equity);
+    
+    const data = [{
+        type: 'scatter',
+        mode: 'lines',
+        x: dates,
+        y: values,
+        name: 'Portfolio Value',
+        line: { color: '#4e79a7', width: 2 },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(78, 121, 167, 0.2)'
+    }];
+    
+    const layout = {
+        height: 350,
+        margin: { t: 10, b: 30, l: 60, r: 20 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#e0e0e0' },
+        xaxis: { title: 'Date', gridcolor: '#333' },
+        yaxis: { title: 'Value ($)', gridcolor: '#333' }
+    };
+    
+    Plotly.newPlot('equity-chart', data, layout, {responsive: true});
+}
+
+function renderPerformanceMetrics(metrics) {
+    const html = `
+        <div class="list-group list-group-flush">
+            <div class="list-group-item bg-transparent d-flex justify-content-between">
+                <span>Total Return</span>
+                <span class="${metrics.total_return >= 0 ? 'text-success' : 'text-danger'}">${metrics.total_return >= 0 ? '+' : ''}${metrics.total_return}%</span>
+            </div>
+            <div class="list-group-item bg-transparent d-flex justify-content-between">
+                <span>Annualized Return</span>
+                <span class="${metrics.annualized_return >= 0 ? 'text-success' : 'text-danger'}">${metrics.annualized_return >= 0 ? '+' : ''}${metrics.annualized_return}%</span>
+            </div>
+            <div class="list-group-item bg-transparent d-flex justify-content-between">
+                <span>Volatility</span>
+                <span>${metrics.volatility}%</span>
+            </div>
+            <div class="list-group-item bg-transparent d-flex justify-content-between">
+                <span>Sharpe Ratio</span>
+                <span class="${metrics.sharpe_ratio >= 1 ? 'text-success' : metrics.sharpe_ratio >= 0 ? 'text-warning' : 'text-danger'}">${metrics.sharpe_ratio}</span>
+            </div>
+            <div class="list-group-item bg-transparent d-flex justify-content-between">
+                <span>Max Drawdown</span>
+                <span class="text-danger">${metrics.max_drawdown}%</span>
+            </div>
+            <div class="list-group-item bg-transparent d-flex justify-content-between">
+                <span>Win Rate</span>
+                <span>${metrics.win_rate}%</span>
+            </div>
+        </div>
+    `;
+    document.getElementById('performance-metrics').innerHTML = html;
+}
+
+function executeTrade() {
+    const symbol = document.getElementById('trade-symbol').value.toUpperCase();
+    const action = document.getElementById('trade-action').value;
+    const shares = parseInt(document.getElementById('trade-shares').value);
+    const priceInput = document.getElementById('trade-price').value;
+    const price = priceInput ? parseFloat(priceInput) : null;
+    
+    if (!symbol || !shares || shares <= 0) {
+        showTradeResult('Please enter a valid symbol and shares', 'danger');
+        return;
+    }
+    
+    const endpoint = action === 'BUY' ? '/api/portfolio/buy' : '/api/portfolio/sell';
+    
+    fetch(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({symbol: symbol, shares: shares, price: price})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showTradeResult(data.message, 'success');
+            loadPortfolio();
+            loadTransactions();
+            loadOrders();
+        } else {
+            showTradeResult(data.error || 'Trade failed', 'danger');
+        }
+    })
+    .catch(err => {
+        console.error('Error executing trade:', err);
+        showTradeResult('Error executing trade', 'danger');
+    });
+}
+
+function showTradeResult(message, type) {
+    const el = document.getElementById('trade-result');
+    el.innerHTML = `<div class="alert alert-${type} mb-0">${message}</div>`;
+    setTimeout(() => el.innerHTML = '', 5000);
+}
+
+function getQuote() {
+    const symbol = document.getElementById('trade-symbol').value.toUpperCase();
+    if (!symbol) return;
+    
+    fetch(`/api/chart/${symbol}?period=5d`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showTradeResult(data.error, 'danger');
+                return;
+            }
+            // Parse chart data to get latest price
+            const chartData = JSON.parse(data.chart);
+            const priceData = chartData.data[0];
+            const lastPrice = priceData.close[priceData.close.length - 1];
+            document.getElementById('trade-price').value = lastPrice.toFixed(2);
+            showTradeResult(`${symbol} current price: $${lastPrice.toFixed(2)}`, 'info');
+        })
+        .catch(err => {
+            console.error('Error getting quote:', err);
+            showTradeResult('Error getting quote', 'danger');
+        });
+}
+
+function quickTrade(symbol, action) {
+    document.getElementById('trade-symbol').value = symbol;
+    document.getElementById('trade-action').value = action;
+    document.getElementById('trade-shares').value = 10;
+    document.getElementById('trade-price').value = '';
+    document.getElementById('trade-symbol').focus();
+}
+
+function loadTransactions() {
+    fetch('/api/portfolio/transactions?limit=20')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('transactions-body');
+            tbody.innerHTML = '';
+            
+            if (data.transactions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No transactions</td></tr>';
+                return;
+            }
+            
+            data.transactions.forEach(tx => {
+                const row = document.createElement('tr');
+                const typeClass = tx.type === 'BUY' ? 'text-success' : 'text-danger';
+                row.innerHTML = `
+                    <td>${tx.timestamp.slice(0, 10)}</td>
+                    <td><strong>${tx.symbol}</strong></td>
+                    <td class="${typeClass}">${tx.type}</td>
+                    <td>${tx.shares}</td>
+                    <td>$${tx.price}</td>
+                    <td>$${tx.total.toLocaleString()}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(err => console.error('Error loading transactions:', err));
+}
+
+function loadOrders() {
+    fetch('/api/portfolio/orders?limit=20')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('orders-body');
+            tbody.innerHTML = '';
+            
+            if (data.orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No orders</td></tr>';
+                return;
+            }
+            
+            data.orders.forEach(order => {
+                const row = document.createElement('tr');
+                const typeClass = order.type === 'BUY' ? 'text-success' : 'text-danger';
+                row.innerHTML = `
+                    <td>${order.timestamp.slice(0, 10)}</td>
+                    <td><strong>${order.symbol}</strong></td>
+                    <td class="${typeClass}">${order.type}</td>
+                    <td>${order.shares}</td>
+                    <td>$${order.price}</td>
+                    <td><span class="badge bg-success">${order.status}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(err => console.error('Error loading orders:', err));
+}
+
+function loadWatchlist() {
+    fetch('/api/portfolio/watchlist')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('watchlist-body');
+            tbody.innerHTML = '';
+            
+            if (data.watchlist.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Watchlist is empty</td></tr>';
+                return;
+            }
+            
+            data.watchlist.forEach(item => {
+                const row = document.createElement('tr');
+                const changeClass = item.change >= 0 ? 'text-success' : 'text-danger';
+                row.innerHTML = `
+                    <td><strong>${item.symbol}</strong></td>
+                    <td>${item.name}</td>
+                    <td>$${item.price}</td>
+                    <td class="${changeClass}">${item.change >= 0 ? '+' : ''}${item.change}%</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeFromWatchlist('${item.symbol}')">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(err => console.error('Error loading watchlist:', err));
+}
+
+function addToWatchlist() {
+    const symbol = document.getElementById('watchlist-symbol').value.toUpperCase();
+    if (!symbol) return;
+    
+    fetch('/api/portfolio/watchlist', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({symbol: symbol})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('watchlist-symbol').value = '';
+            loadWatchlist();
+        } else {
+            alert(data.error || 'Failed to add to watchlist');
+        }
+    })
+    .catch(err => console.error('Error adding to watchlist:', err));
+}
+
+function removeFromWatchlist(symbol) {
+    fetch('/api/portfolio/watchlist', {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({symbol: symbol})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadWatchlist();
+        }
+    })
+    .catch(err => console.error('Error removing from watchlist:', err));
+}
+
+function loadAlerts() {
+    fetch('/api/portfolio/alerts')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('alerts-body');
+            tbody.innerHTML = '';
+            
+            if (data.alerts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No alerts</td></tr>';
+                return;
+            }
+            
+            data.alerts.forEach(alert => {
+                const row = document.createElement('tr');
+                const statusClass = alert.triggered ? 'bg-success' : 'bg-secondary';
+                const statusText = alert.triggered ? 'Triggered' : 'Active';
+                row.innerHTML = `
+                    <td><strong>${alert.symbol}</strong></td>
+                    <td>${alert.condition}</td>
+                    <td>$${alert.target_price}</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteAlert(${alert.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(err => console.error('Error loading alerts:', err));
+}
+
+function createAlert() {
+    const symbol = document.getElementById('alert-symbol').value.toUpperCase();
+    const condition = document.getElementById('alert-condition').value;
+    const targetPrice = parseFloat(document.getElementById('alert-price').value);
+    
+    if (!symbol || !targetPrice) {
+        alert('Please enter symbol and target price');
+        return;
+    }
+    
+    fetch('/api/portfolio/alerts', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            symbol: symbol,
+            condition: condition,
+            target_price: targetPrice
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('alert-symbol').value = '';
+            document.getElementById('alert-price').value = '';
+            loadAlerts();
+        } else {
+            alert(data.error || 'Failed to create alert');
+        }
+    })
+    .catch(err => console.error('Error creating alert:', err));
+}
+
+function deleteAlert(alertId) {
+    fetch('/api/portfolio/alerts', {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({alert_id: alertId})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadAlerts();
+        }
+    })
+    .catch(err => console.error('Error deleting alert:', err));
+}
+
+function checkAlerts() {
+    fetch('/api/portfolio/check_alerts')
+        .then(response => response.json())
+        .then(data => {
+            if (data.triggered.length > 0) {
+                const messages = data.triggered.map(a => 
+                    `${a.symbol} ${a.condition} $${a.target_price} (now $${a.triggered_price})`
+                );
+                alert('Alerts triggered:\n' + messages.join('\n'));
+                loadAlerts();
+            } else {
+                alert('No alerts triggered');
+            }
+        })
+        .catch(err => console.error('Error checking alerts:', err));
+}
+</script>
+{% endblock %}

@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Screener - Mid-Cap Analysis{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="bi bi-funnel"></i> Stock Screener</h1>
+        <p class="text-muted">Filter mid-cap stocks ($2B - $10B) based on your criteria</p>
+    </div>
+</div>
+
+<!-- Screening Criteria -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-sliders"></i> Screening Criteria</h5>
+            </div>
+            <div class="card-body">
+                <form id="screener-form">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Min Market Cap ($B)</label>
+                            <input type="number" class="form-control" id="min_market_cap" value="2" min="0" step="0.5">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Max Market Cap ($B)</label>
+                            <input type="number" class="form-control" id="max_market_cap" value="10" min="0" step="0.5">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Max P/E Ratio</label>
+                            <input type="number" class="form-control" id="max_pe_ratio" value="50" min="0" step="5">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Min Revenue Growth (%)</label>
+                            <input type="number" class="form-control" id="min_revenue_growth" value="0" min="-100" step="5">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Max Debt/Equity</label>
+                            <input type="number" class="form-control" id="max_debt_to_equity" value="200" min="0" step="10">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Min ROE (%)</label>
+                            <input type="number" class="form-control" id="min_roe" value="0" min="-100" step="5">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Max Beta</label>
+                            <input type="number" class="form-control" id="max_beta" value="3" min="0" step="0.5">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Min Current Ratio</label>
+                            <input type="number" class="form-control" id="min_current_ratio" value="0" min="0" step="0.1">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search"></i> Screen Stocks
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-table"></i> Screening Results</h5>
+                <span id="result-count" class="badge bg-primary">0 stocks found</span>
+            </div>
+            <div class="card-body">
+                <div id="screener-loading" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Screening stocks... This may take a minute.</p>
+                </div>
+                <div id="screener-results" class="table-responsive" style="display: none;">
+                    <table class="table table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Name</th>
+                                <th>Sector</th>
+                                <th>Price</th>
+                                <th>Market Cap</th>
+                                <th>P/E</th>
+                                <th>PEG</th>
+                                <th>Div Yield</th>
+                                <th>Beta</th>
+                                <th>Target</th>
+                                <th>Upside %</th>
+                                <th>Rev Growth</th>
+                                <th>ROE %</th>
+                                <th>D/E</th>
+                                <th>Rec</th>
+                            </tr>
+                        </thead>
+                        <tbody id="screener-body">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="screener-placeholder" class="text-center py-4 text-muted">
+                    <i class="bi bi-funnel display-1"></i>
+                    <p class="mt-2">Set your criteria and click "Screen Stocks" to begin</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('screener-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    runScreener();
+});
+
+function runScreener() {
+    const criteria = {
+        min_market_cap: document.getElementById('min_market_cap').value,
+        max_market_cap: document.getElementById('max_market_cap').value,
+        max_pe_ratio: document.getElementById('max_pe_ratio').value,
+        min_revenue_growth: document.getElementById('min_revenue_growth').value,
+        max_debt_to_equity: document.getElementById('max_debt_to_equity').value,
+        min_roe: document.getElementById('min_roe').value,
+        max_beta: document.getElementById('max_beta').value,
+        min_current_ratio: document.getElementById('min_current_ratio').value,
+    };
+    
+    document.getElementById('screener-loading').style.display = 'block';
+    document.getElementById('screener-results').style.display = 'none';
+    document.getElementById('screener-placeholder').style.display = 'none';
+    
+    fetch('/api/screen', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(criteria)
+    })
+    .then(response => response.json())
+    .then(data => {
+        const tbody = document.getElementById('screener-body');
+        tbody.innerHTML = '';
+        document.getElementById('result-count').textContent = data.count + ' stocks found';
+        
+        data.stocks.forEach(stock => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${stock.symbol}</strong></td>
+                <td>${stock.name}</td>
+                <td><span class="badge bg-secondary">${stock.sector}</span></td>
+                <td>$${stock.current_price}</td>
+                <td>$${stock.market_cap_b}B</td>
+                <td>${stock.pe_ratio}</td>
+                <td>${stock.peg_ratio}</td>
+                <td>${stock.dividend_yield}%</td>
+                <td>${stock.beta}</td>
+                <td>$${stock.target_price}</td>
+                <td class="${stock.upside_potential > 0 ? 'text-success fw-bold' : 'text-danger'}">
+                    ${stock.upside_potential > 0 ? '+' : ''}${stock.upside_potential}%
+                </td>
+                <td class="${stock.revenue_growth > 0 ? 'text-success' : 'text-danger'}">
+                    ${stock.revenue_growth > 0 ? '+' : ''}${stock.revenue_growth}%
+                </td>
+                <td class="${stock.return_on_equity > 0 ? 'text-success' : 'text-danger'}">
+                    ${stock.return_on_equity}%
+                </td>
+                <td>${stock.debt_to_equity}</td>
+                <td><span class="badge ${getRecBadgeClass(stock.recommendation)}">${stock.recommendation}</span></td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        document.getElementById('screener-loading').style.display = 'none';
+        document.getElementById('screener-results').style.display = 'block';
+    })
+    .catch(err => {
+        console.error('Error screening stocks:', err);
+        document.getElementById('screener-loading').innerHTML = '<p class="text-danger">Error screening stocks</p>';
+    });
+}
+
+function getRecBadgeClass(rec) {
+    switch(rec) {
+        case 'strong_buy': return 'bg-success';
+        case 'buy': return 'bg-primary';
+        case 'hold': return 'bg-warning';
+        case 'sell': return 'bg-danger';
+        default: return 'bg-secondary';
+    }
+}
+
+function resetForm() {
+    document.getElementById('screener-form').reset();
+    document.getElementById('screener-results').style.display = 'none';
+    document.getElementById('screener-placeholder').style.display = 'block';
+    document.getElementById('result-count').textContent = '0 stocks found';
+}
+</script>
+{% endblock %}

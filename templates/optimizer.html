@@ -1,0 +1,628 @@
+{% extends "base.html" %}
+
+{% block title %}Optimizer - Mid-Cap Stock Analysis{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="bi bi-diagram-3"></i> Portfolio Optimizer</h1>
+        <p class="text-muted">Optimize asset allocation using modern portfolio theory</p>
+    </div>
+</div>
+
+<!-- Input Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-sliders"></i> Optimization Parameters</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Symbols (comma-separated)</label>
+                        <input type="text" id="opt-symbols" class="form-control" placeholder="AAPL, MSFT, GOOGL, AMZN, NVDA">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Risk Tolerance</label>
+                        <select id="opt-risk" class="form-select">
+                            <option value="conservative">Conservative</option>
+                            <option value="moderate" selected>Moderate</option>
+                            <option value="aggressive">Aggressive</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Period</label>
+                        <select id="opt-period" class="form-select">
+                            <option value="1y">1 Year</option>
+                            <option value="2y" selected>2 Years</option>
+                            <option value="5y">5 Years</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Initial Capital</label>
+                        <input type="number" id="opt-capital" class="form-control" value="100000">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button class="btn btn-primary w-100" onclick="runOptimization()">
+                            <i class="bi bi-cpu"></i> Optimize
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Optimization Results -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Optimal Allocation</h5>
+            </div>
+            <div class="card-body">
+                <div id="optimization-loading" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Running optimization...</p>
+                </div>
+                <div id="optimization-results">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-diagram-3 display-4 d-block mb-3"></i>
+                        Enter symbols and click Optimize to see results
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Efficient Frontier</h5>
+            </div>
+            <div class="card-body">
+                <div id="frontier-chart">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-graph-up display-4 d-block mb-3"></i>
+                        Run optimization to see efficient frontier
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Risk Analysis -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-shield-check"></i> Risk Analysis</h5>
+            </div>
+            <div class="card-body">
+                <div id="risk-analysis">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-shield-check display-4 d-block mb-3"></i>
+                        Run optimization to see risk metrics
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-heatmap"></i> Correlation Matrix</h5>
+            </div>
+            <div class="card-body">
+                <div id="correlation-chart">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-heatmap display-4 d-block mb-3"></i>
+                        Run optimization to see correlations
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monte Carlo Simulation -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-activity"></i> Monte Carlo Simulation</h5>
+                <div class="d-flex gap-2">
+                    <select id="mc-years" class="form-select form-select-sm" style="width: 100px;">
+                        <option value="1">1 Year</option>
+                        <option value="3" selected>3 Years</option>
+                        <option value="5">5 Years</option>
+                        <option value="10">10 Years</option>
+                    </select>
+                    <select id="mc-simulations" class="form-select form-select-sm" style="width: 120px;">
+                        <option value="500">500 Sims</option>
+                        <option value="1000" selected>1000 Sims</option>
+                        <option value="5000">5000 Sims</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary" onclick="runMonteCarlo()">
+                        <i class="bi bi-play"></i> Run Simulation
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="monte-carlo-results">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-activity display-4 d-block mb-3"></i>
+                        Run optimization first, then simulate portfolio growth
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentWeights = null;
+let currentSymbols = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Load default symbols
+    document.getElementById('opt-symbols').value = 'AAPL, MSFT, GOOGL, AMZN, NVDA';
+});
+
+function runOptimization() {
+    const symbolsInput = document.getElementById('opt-symbols').value;
+    const symbols = symbolsInput.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+    const riskTolerance = document.getElementById('opt-risk').value;
+    const period = document.getElementById('opt-period').value;
+    
+    if (symbols.length < 2) {
+        alert('Please enter at least 2 symbols');
+        return;
+    }
+    
+    currentSymbols = symbols;
+    
+    // Show loading
+    document.getElementById('optimization-loading').style.display = 'block';
+    document.getElementById('optimization-results').innerHTML = '';
+    document.getElementById('frontier-chart').innerHTML = '';
+    document.getElementById('risk-analysis').innerHTML = '';
+    document.getElementById('correlation-chart').innerHTML = '';
+    
+    // Run optimization
+    fetch('/api/optimizer/optimize', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            symbols: symbols,
+            risk_tolerance: riskTolerance,
+            period: period
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('optimization-loading').style.display = 'none';
+        
+        if (data.error) {
+            document.getElementById('optimization-results').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            return;
+        }
+        
+        currentWeights = data.weights;
+        renderOptimizationResults(data);
+        renderFrontierChart(symbols, period);
+        renderRiskAnalysis(symbols, period);
+        renderCorrelationMatrix(data.correlation_matrix);
+    })
+    .catch(err => {
+        console.error('Error running optimization:', err);
+        document.getElementById('optimization-loading').style.display = 'none';
+        document.getElementById('optimization-results').innerHTML = '<div class="alert alert-danger">Error running optimization</div>';
+    });
+}
+
+function renderOptimizationResults(data) {
+    const weights = data.weights;
+    const labels = Object.keys(weights);
+    const values = Object.values(weights);
+    
+    // Pie chart
+    const pieData = [{
+        type: 'pie',
+        labels: labels,
+        values: values,
+        hole: 0.4,
+        marker: {
+            colors: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac']
+        }
+    }];
+    
+    const pieLayout = {
+        height: 300,
+        margin: { t: 10, b: 10, l: 10, r: 10 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#e0e0e0' },
+        showlegend: true
+    };
+    
+    // Metrics
+    const metricsHtml = `
+        <div class="row mt-3">
+            <div class="col-6">
+                <div class="card bg-dark border-secondary mb-2">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Expected Return</small>
+                        <h5 class="mb-0 text-success">${data.expected_return >= 0 ? '+' : ''}${data.expected_return}%</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card bg-dark border-secondary mb-2">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Volatility</small>
+                        <h5 class="mb-0">${data.volatility}%</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card bg-dark border-secondary mb-2">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Sharpe Ratio</small>
+                        <h5 class="mb-0 ${data.sharpe_ratio >= 1 ? 'text-success' : data.sharpe_ratio >= 0 ? 'text-warning' : 'text-danger'}">${data.sharpe_ratio}</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card bg-dark border-secondary mb-2">
+                    <div class="card-body py-2">
+                        <small class="text-muted">VaR (95%)</small>
+                        <h5 class="mb-0 text-danger">${data.var_95}%</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('optimization-results').innerHTML = `
+        <div id="opt-pie-chart"></div>
+        ${metricsHtml}
+    `;
+    
+    Plotly.newPlot('opt-pie-chart', pieData, pieLayout, {responsive: true});
+}
+
+function renderFrontierChart(symbols, period) {
+    fetch('/api/optimizer/frontier', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({symbols: symbols, period: period})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById('frontier-chart').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            return;
+        }
+        
+        const frontier = data.frontier;
+        const maxSharpe = data.max_sharpe;
+        const minVol = data.min_volatility;
+        
+        const trace1 = {
+            type: 'scatter',
+            mode: 'lines',
+            x: frontier.map(p => p.volatility),
+            y: frontier.map(p => p.return),
+            name: 'Efficient Frontier',
+            line: { color: '#4e79a7', width: 2 }
+        };
+        
+        const trace2 = {
+            type: 'scatter',
+            mode: 'markers',
+            x: [maxSharpe.volatility],
+            y: [maxSharpe.return],
+            name: 'Max Sharpe',
+            marker: { color: '#e15759', size: 12, symbol: 'star' }
+        };
+        
+        const trace3 = {
+            type: 'scatter',
+            mode: 'markers',
+            x: [minVol.volatility],
+            y: [minVol.return],
+            name: 'Min Volatility',
+            marker: { color: '#59a14f', size: 12, symbol: 'diamond' }
+        };
+        
+        const layout = {
+            height: 350,
+            margin: { t: 10, b: 40, l: 60, r: 20 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { color: '#e0e0e0' },
+            xaxis: { title: 'Volatility (%)', gridcolor: '#333' },
+            yaxis: { title: 'Return (%)', gridcolor: '#333' },
+            showlegend: true
+        };
+        
+        Plotly.newPlot('frontier-chart', [trace1, trace2, trace3], layout, {responsive: true});
+    })
+    .catch(err => {
+        console.error('Error loading frontier:', err);
+        document.getElementById('frontier-chart').innerHTML = '<div class="alert alert-danger">Error loading frontier</div>';
+    });
+}
+
+function renderRiskAnalysis(symbols, period) {
+    fetch('/api/optimizer/risk', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({symbols: symbols, period: period})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById('risk-analysis').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            return;
+        }
+        
+        // Risk contributions bar chart
+        const contributions = data.risk_contributions;
+        const labels = Object.keys(contributions);
+        const values = Object.values(contributions);
+        
+        const trace = {
+            type: 'bar',
+            x: labels,
+            y: values,
+            marker: {
+                color: values.map(v => v > 0 ? '#e15759' : '#59a14f')
+            },
+            name: 'Risk Contribution %'
+        };
+        
+        const layout = {
+            height: 250,
+            margin: { t: 10, b: 40, l: 60, r: 20 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { color: '#e0e0e0' },
+            xaxis: { title: 'Symbol', gridcolor: '#333' },
+            yaxis: { title: 'Contribution %', gridcolor: '#333' }
+        };
+        
+        // Metrics
+        const metricsHtml = `
+            <div class="row mt-3">
+                <div class="col-4">
+                    <div class="card bg-dark border-secondary mb-2">
+                        <div class="card-body py-2 text-center">
+                            <small class="text-muted">VaR 95%</small>
+                            <h6 class="mb-0 text-danger">${data.var_95}%</h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="card bg-dark border-secondary mb-2">
+                        <div class="card-body py-2 text-center">
+                            <small class="text-muted">VaR 99%</small>
+                            <h6 class="mb-0 text-danger">${data.var_99}%</h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="card bg-dark border-secondary mb-2">
+                        <div class="card-body py-2 text-center">
+                            <small class="text-muted">Beta</small>
+                            <h6 class="mb-0">${Object.values(data.betas)[0]}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('risk-analysis').innerHTML = `
+            <div id="risk-chart"></div>
+            ${metricsHtml}
+        `;
+        
+        Plotly.newPlot('risk-chart', [trace], layout, {responsive: true});
+    })
+    .catch(err => {
+        console.error('Error loading risk analysis:', err);
+        document.getElementById('risk-analysis').innerHTML = '<div class="alert alert-danger">Error loading risk analysis</div>';
+    });
+}
+
+function renderCorrelationMatrix(correlationMatrix) {
+    const symbols = Object.keys(correlationMatrix);
+    const n = symbols.length;
+    
+    const z = [];
+    for (let i = 0; i < n; i++) {
+        const row = [];
+        for (let j = 0; j < n; j++) {
+            row.push(correlationMatrix[symbols[i]][symbols[j]]);
+        }
+        z.push(row);
+    }
+    
+    const trace = {
+        type: 'heatmap',
+        z: z,
+        x: symbols,
+        y: symbols,
+        colorscale: [
+            [0, '#e15759'],
+            [0.5, '#f2f2f2'],
+            [1, '#59a14f']
+        ],
+        zmin: -1,
+        zmax: 1,
+        showscale: true,
+        colorbar: {
+            title: 'Correlation',
+            thickness: 15
+        }
+    };
+    
+    const layout = {
+        height: 350,
+        margin: { t: 10, b: 60, l: 60, r: 60 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#e0e0e0' },
+        xaxis: { tickangle: -45 },
+        yaxis: { autorange: 'reversed' }
+    };
+    
+    Plotly.newPlot('correlation-chart', [trace], layout, {responsive: true});
+}
+
+function runMonteCarlo() {
+    if (!currentSymbols || currentSymbols.length < 2) {
+        alert('Please run optimization first');
+        return;
+    }
+    
+    const years = parseFloat(document.getElementById('mc-years').value);
+    const nSimulations = parseInt(document.getElementById('mc-simulations').value);
+    const initialCapital = parseFloat(document.getElementById('opt-capital').value) || 100000;
+    
+    document.getElementById('monte-carlo-results').innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Running ${nSimulations} simulations...</p>
+        </div>
+    `;
+    
+    fetch('/api/optimizer/monte_carlo', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            symbols: currentSymbols,
+            weights: currentWeights ? Object.values(currentWeights) : null,
+            initial_capital: initialCapital,
+            years: years,
+            n_simulations: nSimulations
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById('monte-carlo-results').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            return;
+        }
+        
+        renderMonteCarloResults(data);
+    })
+    .catch(err => {
+        console.error('Error running Monte Carlo:', err);
+        document.getElementById('monte-carlo-results').innerHTML = '<div class="alert alert-danger">Error running simulation</div>';
+    });
+}
+
+function renderMonteCarloResults(data) {
+    // Sample paths chart
+    const traces = [];
+    
+    data.sample_paths.forEach((path, i) => {
+        traces.push({
+            type: 'scatter',
+            mode: 'lines',
+            x: Array.from({length: path.values.length}, (_, j) => j * 20),
+            y: path.values,
+            line: { color: 'rgba(78, 121, 167, 0.1)', width: 1 },
+            showlegend: false,
+            hoverinfo: 'skip'
+        });
+    });
+    
+    // Add percentile lines
+    const p50 = data.percentiles.p50;
+    const p5 = data.percentiles.p5;
+    const p95 = data.percentiles.p95;
+    
+    const layout = {
+        height: 400,
+        margin: { t: 10, b: 40, l: 60, r: 20 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#e0e0e0' },
+        xaxis: { title: 'Trading Days', gridcolor: '#333' },
+        yaxis: { title: 'Portfolio Value ($)', gridcolor: '#333' },
+        showlegend: false
+    };
+    
+    // Stats cards
+    const statsHtml = `
+        <div class="row mt-3">
+            <div class="col-md-3">
+                <div class="card bg-dark border-secondary mb-2">
+                    <div class="card-body py-2 text-center">
+                        <small class="text-muted">Expected Value</small>
+                        <h6 class="mb-0">$${data.expected_value.toLocaleString()}</h6>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-dark border-secondary mb-2">
+                    <div class="card-body py-2 text-center">
+                        <small class="text-muted">Probability of Loss</small>
+                        <h6 class="mb-0 ${data.prob_loss > 30 ? 'text-danger' : data.prob_loss > 10 ? 'text-warning' : 'text-success'}">${data.prob_loss}%</h6>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-dark border-secondary mb-2">
+                    <div class="card-body py-2 text-center">
+                        <small class="text-muted">5th Percentile</small>
+                        <h6 class="mb-0 text-danger">$${data.percentiles.p5.toLocaleString()}</h6>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-dark border-secondary mb-2">
+                    <div class="card-body py-2 text-center">
+                        <small class="text-muted">95th Percentile</small>
+                        <h6 class="mb-0 text-success">$${data.percentiles.p95.toLocaleString()}</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-body py-2">
+                        <small class="text-muted">Percentile Distribution</small>
+                        <div class="d-flex justify-content-between mt-2">
+                            <span class="text-danger">P5: $${data.percentiles.p5.toLocaleString()}</span>
+                            <span class="text-warning">P25: $${data.percentiles.p25.toLocaleString()}</span>
+                            <span class="text-info">P50: $${data.percentiles.p50.toLocaleString()}</span>
+                            <span class="text-success">P75: $${data.percentiles.p75.toLocaleString()}</span>
+                            <span class="text-primary">P95: $${data.percentiles.p95.toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('monte-carlo-results').innerHTML = `
+        <div id="mc-chart"></div>
+        ${statsHtml}
+    `;
+    
+    Plotly.newPlot('mc-chart', traces, layout, {responsive: true});
+}
+</script>
+{% endblock %}

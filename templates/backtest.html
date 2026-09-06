@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Backtesting - Mid-Cap Stock Analysis{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="bi bi-bar-chart"></i> Strategy Backtester</h1>
+        <p class="text-muted">Test trading strategies on historical data</p>
+    </div>
+</div>
+
+<!-- Configuration -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-gear"></i> Backtest Configuration</h5>
+            </div>
+            <div class="card-body">
+                <form id="backtest-form">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Stock Symbol</label>
+                            <input type="text" class="form-control" id="bt-symbol" placeholder="e.g., SNOW" value="SNOW">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Strategy</label>
+                            <select class="form-select" id="bt-strategy">
+                                <option value="sma_crossover">SMA Crossover (20/50)</option>
+                                <option value="rsi">RSI Mean Reversion</option>
+                                <option value="bollinger_band">Bollinger Band</option>
+                                <option value="macd">MACD</option>
+                                <option value="combined">Combined (Multi-Indicator)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Initial Capital ($)</label>
+                            <input type="number" class="form-control" id="bt-capital" value="10000" min="1000" step="1000">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Period</label>
+                            <select class="form-select" id="bt-period">
+                                <option value="6mo">6 Months</option>
+                                <option value="1y" selected>1 Year</option>
+                                <option value="2y">2 Years</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-play"></i> Run Backtest
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="bt-loading" class="text-center py-5" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="mt-2">Running backtest...</p>
+</div>
+
+<!-- Results -->
+<div id="bt-results" style="display: none;">
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Return</h6>
+                    <h3 id="bt-total-return">0%</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="text-muted">Buy & Hold</h6>
+                    <h3 id="bt-buy-hold">0%</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="text-muted">Outperformance</h6>
+                    <h3 id="bt-outperformance">0%</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="text-muted">Win Rate</h6>
+                    <h3 id="bt-win-rate">0%</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5><i class="bi bi-calculator"></i> Performance Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm" id="bt-metrics-table">
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5><i class="bi bi-list-check"></i> Trade Log</h5>
+                </div>
+                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-sm" id="bt-trades-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Price</th>
+                                <th>Shares</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bt-trades-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Equity Curve -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-graph-up-arrow"></i> Equity Curve</h5>
+                </div>
+                <div class="card-body">
+                    <div id="bt-equity-chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Placeholder -->
+<div id="bt-placeholder" class="text-center py-5 text-muted">
+    <i class="bi bi-bar-chart display-1"></i>
+    <p class="mt-2">Configure and run a backtest to see results</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('backtest-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    runBacktest();
+});
+
+function runBacktest() {
+    const config = {
+        symbol: document.getElementById('bt-symbol').value.toUpperCase(),
+        strategy: document.getElementById('bt-strategy').value,
+        initial_capital: document.getElementById('bt-capital').value,
+        period: document.getElementById('bt-period').value,
+    };
+    
+    if (!config.symbol) {
+        alert('Please enter a stock symbol');
+        return;
+    }
+    
+    document.getElementById('bt-loading').style.display = 'block';
+    document.getElementById('bt-results').style.display = 'none';
+    document.getElementById('bt-placeholder').style.display = 'none';
+    
+    fetch('/api/backtest', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(config)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            document.getElementById('bt-loading').style.display = 'none';
+            document.getElementById('bt-placeholder').style.display = 'block';
+            return;
+        }
+        
+        displayResults(data);
+        
+        document.getElementById('bt-loading').style.display = 'none';
+        document.getElementById('bt-results').style.display = 'block';
+    })
+    .catch(err => {
+        console.error('Error running backtest:', err);
+        document.getElementById('bt-loading').innerHTML = '<p class="text-danger">Error running backtest</p>';
+    });
+}
+
+function displayResults(result) {
+    // Summary cards
+    const totalReturn = document.getElementById('bt-total-return');
+    totalReturn.textContent = (result.total_return > 0 ? '+' : '') + result.total_return + '%';
+    totalReturn.className = result.total_return >= 0 ? 'text-success' : 'text-danger';
+    
+    const buyHold = document.getElementById('bt-buy-hold');
+    buyHold.textContent = (result.buy_hold_return > 0 ? '+' : '') + result.buy_hold_return + '%';
+    buyHold.className = result.buy_hold_return >= 0 ? 'text-success' : 'text-danger';
+    
+    const outperf = document.getElementById('bt-outperformance');
+    outperf.textContent = (result.outperformance > 0 ? '+' : '') + result.outperformance + '%';
+    outperf.className = result.outperformance >= 0 ? 'text-success' : 'text-danger';
+    
+    const winRate = document.getElementById('bt-win-rate');
+    winRate.textContent = result.win_rate + '%';
+    winRate.className = result.win_rate >= 50 ? 'text-success' : 'text-danger';
+    
+    // Metrics table
+    document.getElementById('bt-metrics-table').innerHTML = `
+        <tr><td>Final Equity</td><td>$${result.final_equity.toLocaleString()}</td></tr>
+        <tr><td>Initial Capital</td><td>$${result.initial_capital.toLocaleString()}</td></tr>
+        <tr><td>Annualized Return</td><td class="${result.annualized_return >= 0 ? 'text-success' : 'text-danger'}">${result.annualized_return}%</td></tr>
+        <tr><td>Volatility</td><td>${result.volatility}%</td></tr>
+        <tr><td>Sharpe Ratio</td><td class="${result.sharpe_ratio >= 1 ? 'text-success' : ''}">${result.sharpe_ratio}</td></tr>
+        <tr><td>Max Drawdown</td><td class="text-danger">${result.max_drawdown}%</td></tr>
+        <tr><td>Total Trades</td><td>${result.total_trades}</td></tr>
+        <tr><td>Round Trips</td><td>${result.round_trips}</td></tr>
+        <tr><td>Win Rate</td><td class="${result.win_rate >= 50 ? 'text-success' : 'text-danger'}">${result.win_rate}%</td></tr>
+    `;
+    
+    // Trades table
+    const tradesBody = document.getElementById('bt-trades-body');
+    tradesBody.innerHTML = '';
+    result.trades.forEach(trade => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${trade.date.split(' ')[0]}</td>
+            <td><span class="badge ${trade.type === 'BUY' ? 'bg-success' : 'bg-danger'}">${trade.type}</span></td>
+            <td>$${trade.price.toFixed(2)}</td>
+            <td>${trade.shares}</td>
+        `;
+        tradesBody.appendChild(row);
+    });
+    
+    // Equity curve chart
+    const equityData = result.equity_curve;
+    const dates = equityData.map(p => p.date);
+    const equity = equityData.map(p => p.equity);
+    const prices = equityData.map(p => p.price);
+    
+    const trace1 = {
+        x: dates,
+        y: equity,
+        type: 'scatter',
+        name: 'Portfolio Equity',
+        line: {color: '#0d6efd', width: 2}
+    };
+    
+    const layout = {
+        height: 400,
+        xaxis: {title: 'Date'},
+        yaxis: {title: 'Equity ($)'},
+        template: 'plotly_dark',
+        margin: {t: 20, b: 40, l: 60, r: 20}
+    };
+    
+    Plotly.newPlot('bt-equity-chart', [trace1], layout);
+}
+</script>
+{% endblock %}
