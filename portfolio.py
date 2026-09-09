@@ -1,5 +1,5 @@
 """
-Portfolio Management Module - Track holdings, positions, and performance
+Portfolio Management Module - Advanced portfolio with limit/stop orders, risk management, and rebalancing
 """
 import json
 import os
@@ -10,7 +10,7 @@ from data_provider import DataProvider
 
 
 class PortfolioManager:
-    """Manage a simulated trading portfolio with positions, orders, and performance tracking."""
+    """Manage a simulated trading portfolio with advanced order types and risk management."""
     
     def __init__(self, data_provider=None, data_file='portfolio_data.json'):
         self.data_provider = data_provider or DataProvider()
@@ -34,6 +34,14 @@ class PortfolioManager:
             'transactions': [],
             'watchlist': [],
             'alerts': [],
+            'pending_orders': [],
+            'risk_settings': {
+                'max_position_size': 0.20,  # Max 20% of portfolio per position
+                'max_portfolio_risk': 0.02,  # Max 2% risk per trade
+                'default_stop_loss': 0.05,  # 5% default stop loss
+                'default_take_profit': 0.15,  # 15% default take profit
+                'max_drawdown_limit': 0.20,  # 20% max drawdown
+            },
             'created_at': datetime.now().isoformat(),
         }
     
@@ -69,22 +77,19 @@ class PortfolioManager:
                 'unrealized_pnl': round(unrealized_pnl, 2),
                 'unrealized_pnl_pct': round(unrealized_pnl_pct, 2),
                 'day_change': round((current_price - pos.get('prev_close', current_price)) / pos.get('prev_close', current_price) * 100, 2) if pos.get('prev_close', 0) > 0 else 0,
+                'stop_loss': pos.get('stop_loss'),
+                'take_profit': pos.get('take_profit'),
             }
             
-            # Update prev_close for next day
             pos['prev_close'] = current_price
-            
             total_value += market_value
             positions.append(position)
         
-        # Sort positions by market value
         positions.sort(key=lambda x: x['market_value'], reverse=True)
         
-        # Calculate total P&L
         total_pnl = total_value - self.portfolio['initial_capital']
         total_pnl_pct = (total_pnl / self.portfolio['initial_capital'] * 100) if self.portfolio['initial_capital'] > 0 else 0
         
-        # Calculate day P&L
         day_pnl = sum(p['unrealized_pnl'] * (p['day_change'] / 100) for p in positions if p['day_change'] != 0)
         
         # Calculate allocation
@@ -95,6 +100,9 @@ class PortfolioManager:
         
         total_market_value = sum(p['market_value'] for p in positions)
         allocation_pct = {k: round(v / total_market_value * 100, 2) for k, v in allocation.items()} if total_market_value > 0 else {}
+        
+        # Check risk limits
+        risk_status = self._check_risk_limits(total_value)
         
         self._save_portfolio()
         
@@ -109,6 +117,8 @@ class PortfolioManager:
             'position_count': len(positions),
             'allocation': allocation_pct,
             'buying_power': round(self.portfolio['cash'], 2),
+            'risk_status': risk_status,
+            'pending_orders': len(self.portfolio.get('pending_orders', [])),
         }
     
     def _get_sector(self, symbol):
@@ -116,14 +126,33 @@ class PortfolioManager:
         info = self.data_provider.get_stock_info(symbol)
         return info.get('sector', 'Unknown') if info else 'Unknown'
     
-    def buy(self, symbol, shares, price=None):
+    def _check_risk_limits(self, total_value):
+        """Check if portfolio is within risk limits."""
+        settings = self.portfolio.get('risk_settings', {})
+        max_drawdown_limit = settings.get('max_drawdown_limit', 0.20)
+        
+        current_drawdown = (self.portfolio['initial_capital'] - total_value) / self.portfolio['initial_capital']
+        
+        return {
+            'within_limits': current_drawdown < max_drawdown_limit,
+            'current_drawdown': round(current_drawdown * 100, 2),
+            'max_drawdown_limit': round(max_drawdown_limit * 100, 2),
+            'max_position_size': settings.get('max_position_size', 0.20),
+        }
+    
+    def buy(self, symbol, shares, price=None, order_type='market', limit_price=None,
+            stop_loss=None, take_profit=None):
         """
-        Execute a buy order.
+        Execute a buy order with optional limit price and risk management.
         
         Args:
             symbol: Stock ticker
             shares: Number of shares to buy
             price: Execution price (None for market price)
+            order_type: 'market', 'limit', or 'stop'
+            limit_price: Limit price for limit orders
+            stop_loss: Stop loss percentage (e.g., 0.05 = 5%)
+            take_profit: Take profit percentage (e.g., 0.10 = 10%)
         """
         symbol = symbol.upper()
         
@@ -134,7 +163,42 @@ class PortfolioManager:
                 return {'success': False, 'error': f'Could not get price for {symbol}'}
             price = data['Close'].iloc[-1]
         
+        # Handle limit orders
+        if order_type == 'limit' and limit_price is not None:
+            if price > limit_price:
+                # Add to pending orders
+                pending_order = {
+                    'id': len(self.portfolio.get('pending_orders', [])) + 1,
+                    'symbol': symbol,
+                    'type': 'BUY',
+                    'shares': shares,
+                    'limit_price': limit_price,
+                    'stop_loss': stop_loss,
+                    'take_profit': take_profit,
+                    'created_at': datetime.now().isoformat(),
+                    'status': 'PENDING',
+                }
+                self.portfolio.setdefault('pending_orders', []).append(pending_order)
+                self._save_portfolio()
+                return {
+                    'success': True,
+                    'message': f'Limit buy order placed: {shares} shares of {symbol} at ${limit_price:.2f}',
+                    'order': pending_order,
+                }
+            price = limit_price
+        
         cost = price * shares
+        
+        # Check risk limits
+        settings = self.portfolio.get('risk_settings', {})
+        max_position_size = settings.get('max_position_size', 0.20)
+        
+        summary = self.get_portfolio_summary()
+        if cost > summary['total_value'] * max_position_size:
+            return {
+                'success': False,
+                'error': f'Position size exceeds limit. Max {max_position_size*100:.0f}% of portfolio (${summary["total_value"] * max_position_size:.2f})'
+            }
         
         # Check sufficient cash
         if cost > self.portfolio['cash']:
@@ -156,6 +220,12 @@ class PortfolioManager:
                 'avg_price': price,
             }
         
+        # Set stop loss / take profit
+        if stop_loss is not None:
+            self.portfolio['positions'][symbol]['stop_loss'] = round(price * (1 - stop_loss), 2)
+        if take_profit is not None:
+            self.portfolio['positions'][symbol]['take_profit'] = round(price * (1 + take_profit), 2)
+        
         # Record transaction
         transaction = {
             'symbol': symbol,
@@ -163,6 +233,7 @@ class PortfolioManager:
             'shares': shares,
             'price': round(price, 2),
             'total': round(cost, 2),
+            'order_type': order_type,
             'timestamp': datetime.now().isoformat(),
         }
         self.portfolio['transactions'].append(transaction)
@@ -174,6 +245,7 @@ class PortfolioManager:
             'shares': shares,
             'price': round(price, 2),
             'status': 'FILLED',
+            'order_type': order_type,
             'timestamp': datetime.now().isoformat(),
         }
         self.portfolio['orders'].append(order)
@@ -186,62 +258,73 @@ class PortfolioManager:
             'transaction': transaction,
         }
     
-    def sell(self, symbol, shares, price=None):
+    def sell(self, symbol, shares, price=None, order_type='market', limit_price=None):
         """
-        Execute a sell order.
-        
-        Args:
-            symbol: Stock ticker
-            shares: Number of shares to sell
-            price: Execution price (None for market price)
+        Execute a sell order with optional limit price.
         """
         symbol = symbol.upper()
         
-        # Check position exists
         if symbol not in self.portfolio['positions']:
             return {'success': False, 'error': f'No position in {symbol}'}
         
         pos = self.portfolio['positions'][symbol]
         
-        # Check sufficient shares
         if shares > pos['shares']:
             return {'success': False, 'error': f'Insufficient shares. Have {pos["shares"]}, trying to sell {shares}'}
         
-        # Get current price if not provided
         if price is None:
             data = self.data_provider.get_stock_data(symbol, period='5d')
             if data is None or data.empty:
                 return {'success': False, 'error': f'Could not get price for {symbol}'}
             price = data['Close'].iloc[-1]
         
+        # Handle limit orders
+        if order_type == 'limit' and limit_price is not None:
+            if price < limit_price:
+                pending_order = {
+                    'id': len(self.portfolio.get('pending_orders', [])) + 1,
+                    'symbol': symbol,
+                    'type': 'SELL',
+                    'shares': shares,
+                    'limit_price': limit_price,
+                    'created_at': datetime.now().isoformat(),
+                    'status': 'PENDING',
+                }
+                self.portfolio.setdefault('pending_orders', []).append(pending_order)
+                self._save_portfolio()
+                return {
+                    'success': True,
+                    'message': f'Limit sell order placed: {shares} shares of {symbol} at ${limit_price:.2f}',
+                    'order': pending_order,
+                }
+            price = limit_price
+        
         revenue = price * shares
         
-        # Execute order
         self.portfolio['cash'] += revenue
         
-        # Update position
         pos['shares'] -= shares
         if pos['shares'] == 0:
             del self.portfolio['positions'][symbol]
         
-        # Record transaction
         transaction = {
             'symbol': symbol,
             'type': 'SELL',
             'shares': shares,
             'price': round(price, 2),
             'total': round(revenue, 2),
+            'order_type': order_type,
             'timestamp': datetime.now().isoformat(),
         }
         self.portfolio['transactions'].append(transaction)
         
-        # Record order
         order = {
             'symbol': symbol,
             'type': 'SELL',
             'shares': shares,
             'price': round(price, 2),
             'status': 'FILLED',
+            'order_type': order_type,
             'timestamp': datetime.now().isoformat(),
         }
         self.portfolio['orders'].append(order)
@@ -254,6 +337,127 @@ class PortfolioManager:
             'transaction': transaction,
         }
     
+    def check_pending_orders(self):
+        """Check and execute pending limit orders."""
+        executed = []
+        pending = self.portfolio.get('pending_orders', [])
+        
+        for order in pending[:]:
+            if order['status'] != 'PENDING':
+                continue
+            
+            symbol = order['symbol']
+            data = self.data_provider.get_stock_data(symbol, period='5d')
+            if data is None or data.empty:
+                continue
+            
+            current_price = data['Close'].iloc[-1]
+            
+            if order['type'] == 'BUY' and current_price <= order['limit_price']:
+                result = self.buy(symbol, order['shares'], price=order['limit_price'],
+                                stop_loss=order.get('stop_loss'), take_profit=order.get('take_profit'))
+                if result['success']:
+                    order['status'] = 'FILLED'
+                    order['executed_at'] = datetime.now().isoformat()
+                    executed.append(order)
+            
+            elif order['type'] == 'SELL' and current_price >= order['limit_price']:
+                result = self.sell(symbol, order['shares'], price=order['limit_price'])
+                if result['success']:
+                    order['status'] = 'FILLED'
+                    order['executed_at'] = datetime.now().isoformat()
+                    executed.append(order)
+        
+        if executed:
+            self._save_portfolio()
+        
+        return executed
+    
+    def check_stop_loss_take_profit(self):
+        """Check and execute stop loss / take profit for positions."""
+        executed = []
+        
+        for symbol, pos in list(self.portfolio['positions'].items()):
+            data = self.data_provider.get_stock_data(symbol, period='5d')
+            if data is None or data.empty:
+                continue
+            
+            current_price = data['Close'].iloc[-1]
+            
+            # Check stop loss
+            if pos.get('stop_loss') and current_price <= pos['stop_loss']:
+                result = self.sell(symbol, pos['shares'], price=pos['stop_loss'])
+                if result['success']:
+                    executed.append({
+                        'symbol': symbol,
+                        'type': 'STOP_LOSS',
+                        'price': pos['stop_loss'],
+                        'shares': pos['shares'],
+                    })
+            
+            # Check take profit
+            elif pos.get('take_profit') and current_price >= pos['take_profit']:
+                result = self.sell(symbol, pos['shares'], price=pos['take_profit'])
+                if result['success']:
+                    executed.append({
+                        'symbol': symbol,
+                        'type': 'TAKE_PROFIT',
+                        'price': pos['take_profit'],
+                        'shares': pos['shares'],
+                    })
+        
+        return executed
+    
+    def rebalance(self, target_allocations):
+        """
+        Rebalance portfolio to target allocations.
+        
+        Args:
+            target_allocations: dict of symbol -> target weight (0-1)
+        """
+        summary = self.get_portfolio_summary()
+        total_value = summary['total_value']
+        
+        actions = []
+        
+        for symbol, target_weight in target_allocations.items():
+            symbol = symbol.upper()
+            target_value = total_value * target_weight
+            
+            if symbol in self.portfolio['positions']:
+                pos = self.portfolio['positions'][symbol]
+                data = self.data_provider.get_stock_data(symbol, period='5d')
+                current_price = data['Close'].iloc[-1] if data is not None and not data.empty else pos['avg_price']
+                
+                current_value = pos['shares'] * current_price
+                diff = target_value - current_value
+                
+                if abs(diff) > total_value * 0.01:  # Only rebalance if diff > 1%
+                    shares_diff = int(abs(diff) / current_price)
+                    
+                    if diff > 0 and shares_diff > 0:
+                        result = self.buy(symbol, shares_diff)
+                        if result['success']:
+                            actions.append({'symbol': symbol, 'action': 'BUY', 'shares': shares_diff})
+                    elif diff < 0 and shares_diff > 0 and shares_diff <= pos['shares']:
+                        result = self.sell(symbol, shares_diff)
+                        if result['success']:
+                            actions.append({'symbol': symbol, 'action': 'SELL', 'shares': shares_diff})
+            else:
+                # New position
+                shares = int(target_value / (self.data_provider.get_stock_data(symbol, period='5d')['Close'].iloc[-1] 
+                            if self.data_provider.get_stock_data(symbol, period='5d') is not None else 0))
+                if shares > 0:
+                    result = self.buy(symbol, shares)
+                    if result['success']:
+                        actions.append({'symbol': symbol, 'action': 'BUY', 'shares': shares})
+        
+        return {
+            'success': True,
+            'actions': actions,
+            'message': f'Rebalanced with {len(actions)} actions',
+        }
+    
     def get_transactions(self, limit=50):
         """Get recent transactions."""
         transactions = self.portfolio['transactions'][-limit:]
@@ -264,17 +468,29 @@ class PortfolioManager:
         orders = self.portfolio['orders'][-limit:]
         return list(reversed(orders))
     
+    def get_pending_orders(self):
+        """Get pending orders."""
+        return self.portfolio.get('pending_orders', [])
+    
+    def cancel_pending_order(self, order_id):
+        """Cancel a pending order."""
+        pending = self.portfolio.get('pending_orders', [])
+        for order in pending:
+            if order['id'] == order_id and order['status'] == 'PENDING':
+                order['status'] = 'CANCELLED'
+                self._save_portfolio()
+                return {'success': True, 'message': f'Cancelled order {order_id}'}
+        return {'success': False, 'error': f'Order {order_id} not found or not pending'}
+    
     def get_equity_curve(self, period='1y'):
         """Get portfolio equity curve over time."""
         if not self.portfolio['transactions']:
             return []
         
-        # Build equity curve from transactions
         equity_points = []
         cash = self.portfolio['initial_capital']
         positions = {}
         
-        # Sort transactions by timestamp
         transactions = sorted(self.portfolio['transactions'], key=lambda x: x['timestamp'])
         
         for tx in transactions:
@@ -288,12 +504,10 @@ class PortfolioManager:
                 if positions[symbol] <= 0:
                     del positions[symbol]
             
-            # Get prices at this point
             total_value = cash
             for sym, shares in positions.items():
                 data = self.data_provider.get_stock_data(sym, period='1y')
                 if data is not None and not data.empty:
-                    # Find price closest to transaction date
                     tx_date = pd.Timestamp(tx['timestamp']).tz_localize(None)
                     mask = data.index <= tx_date
                     if mask.any():
@@ -307,7 +521,6 @@ class PortfolioManager:
                 'equity': round(total_value, 2),
             })
         
-        # Add current value
         summary = self.get_portfolio_summary()
         equity_points.append({
             'date': datetime.now().strftime('%Y-%m-%d'),
@@ -336,30 +549,24 @@ class PortfolioManager:
         
         total_return = summary['total_pnl_pct']
         
-        # Annualized return
         days = (pd.Timestamp(df['date'].iloc[-1]) - pd.Timestamp(df['date'].iloc[0])).days
         years = max(days / 365.25, 0.01)
         annualized_return = ((1 + total_return / 100) ** (1 / years) - 1) * 100
         
-        # Volatility
         volatility = df['returns'].std() * np.sqrt(252) * 100 if len(df) > 1 else 0
         
-        # Sharpe Ratio
         sharpe = (annualized_return - 4) / volatility if volatility > 0 else 0
         
-        # Max Drawdown
         cumulative = (1 + df['returns'].fillna(0)).cumprod()
         rolling_max = cumulative.expanding().max()
         drawdown = (cumulative - rolling_max) / rolling_max
         max_drawdown = drawdown.min() * 100
         
-        # Win rate from transactions
         buys = [t for t in self.portfolio['transactions'] if t['type'] == 'BUY']
         sells = [t for t in self.portfolio['transactions'] if t['type'] == 'SELL']
         
         wins = 0
         for sell in sells:
-            # Find matching buy
             for buy in buys:
                 if buy['symbol'] == sell['symbol'] and buy['timestamp'] < sell['timestamp']:
                     if sell['price'] > buy['price']:
@@ -425,14 +632,7 @@ class PortfolioManager:
     # ==================== ALERTS ====================
     
     def create_alert(self, symbol, condition, target_price):
-        """
-        Create a price alert.
-        
-        Args:
-            symbol: Stock ticker
-            condition: 'above' or 'below'
-            target_price: Price threshold
-        """
+        """Create a price alert."""
         symbol = symbol.upper()
         alert = {
             'id': len(self.portfolio['alerts']) + 1,
@@ -484,3 +684,19 @@ class PortfolioManager:
         self.portfolio['alerts'] = [a for a in self.portfolio['alerts'] if a['id'] != alert_id]
         self._save_portfolio()
         return {'success': True, 'message': f'Deleted alert {alert_id}'}
+    
+    # ==================== RISK SETTINGS ====================
+    
+    def update_risk_settings(self, **kwargs):
+        """Update risk management settings."""
+        settings = self.portfolio.setdefault('risk_settings', {})
+        for key, value in kwargs.items():
+            if key in ['max_position_size', 'max_portfolio_risk', 'default_stop_loss', 
+                      'default_take_profit', 'max_drawdown_limit']:
+                settings[key] = float(value)
+        self._save_portfolio()
+        return {'success': True, 'message': 'Risk settings updated', 'settings': settings}
+    
+    def get_risk_settings(self):
+        """Get current risk management settings."""
+        return self.portfolio.get('risk_settings', {})

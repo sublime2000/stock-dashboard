@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Mid-Cap Stock Dashboard{% endblock %}</title>
+    <title>{% block title %}QuantStock Dashboard{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
@@ -13,7 +13,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
-                <i class="bi bi-graph-up-arrow"></i> QuantStock Dashboard
+                <i class="bi bi-graph-up-arrow"></i> QuantStock
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -38,9 +38,15 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/optimizer"><i class="bi bi-diagram-3"></i> Optimizer</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/live"><i class="bi bi-broadcast"></i> Live Trading</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/algorithms"><i class="bi bi-code-square"></i> Algorithms</a>
+                    </li>
                 </ul>
                 <span class="navbar-text text-light">
-                    <i class="bi bi-info-circle"></i> Data: Yahoo Finance + Alpha Vantage
+                    <i class="bi bi-info-circle"></i> Data: Yahoo Finance
                 </span>
             </div>
         </div>

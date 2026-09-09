@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 portfolio_data.json
+live_trading_data.json
+algorithms.json
 .env
 .env.*
 venv/

@@ -1,0 +1,577 @@
+{% extends "base.html" %}
+
+{% block title %}Algorithm Editor - QuantStock{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="bi bi-code-square"></i> Algorithm Editor</h1>
+        <p class="text-muted">Build, test, and deploy custom trading algorithms</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left: Builder -->
+    <div class="col-lg-7">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-tools"></i> Algorithm Builder</h5>
+            </div>
+            <div class="card-body">
+                <!-- Basic Info -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Algorithm Name</label>
+                        <input type="text" id="algo-name" class="form-control" placeholder="My Strategy">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Strategy Type</label>
+                        <select id="algo-type" class="form-select" onchange="toggleRules()">
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <input type="text" id="algo-description" class="form-control" placeholder="Describe your strategy">
+                    </div>
+                </div>
+
+                <!-- Parameters (for predefined strategies) -->
+                <div id="parameters-section">
+                    <h6 class="text-muted mb-2"><i class="bi bi-sliders"></i> Parameters</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-3">
+                            <input type="text" id="param-name" class="form-control form-control-sm" placeholder="Param name">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" id="param-value" class="form-control form-control-sm" placeholder="Value" step="any">
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-sm btn-outline-primary w-100" onclick="addParameter()">Add Param</button>
+                        </div>
+                    </div>
+                    <div id="parameters-list" class="mb-3"></div>
+                </div>
+
+                <!-- Rules (for rule-based strategies) -->
+                <div id="rules-section" style="display: none;">
+                    <h6 class="text-muted mb-2"><i class="bi bi-list-check"></i> Rules (evaluated in order)</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3">
+                            <select id="rule-indicator" class="form-select form-select-sm">
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select id="rule-condition" class="form-select form-select-sm">
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" id="rule-value" class="form-control form-control-sm" placeholder="Value" step="any">
+                        </div>
+                        <div class="col-md-2">
+                            <select id="rule-action" class="form-select form-select-sm">
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-sm btn-outline-primary w-100" onclick="addRule()">Add Rule</button>
+                        </div>
+                    </div>
+                    <div id="rules-list" class="mb-3"></div>
+                </div>
+
+                <button class="btn btn-primary" onclick="saveAlgorithm()">
+                    <i class="bi bi-save"></i> Save Algorithm
+                </button>
+                <div id="save-result" class="mt-2"></div>
+            </div>
+        </div>
+
+        <!-- Test Section -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-play-circle"></i> Test Algorithm</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Algorithm</label>
+                        <select id="test-algo" class="form-select">
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Symbol</label>
+                        <input type="text" id="test-symbol" class="form-control" value="AAPL">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Period</label>
+                        <select id="test-period" class="form-select">
+                            <option value="6mo">6 Months</option>
+                            <option value="1y" selected>1 Year</option>
+                            <option value="2y">2 Years</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button class="btn btn-primary w-100" onclick="testAlgorithm()">
+                            <i class="bi bi-play"></i> Test
+                        </button>
+                    </div>
+                </div>
+                <div id="test-loading" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Running backtest...</p>
+                </div>
+                <div id="test-results" style="display: none;">
+                    <div class="row mb-3" id="test-metrics"></div>
+                    <div id="test-chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Saved Algorithms -->
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-folder"></i> Saved Algorithms</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadAlgorithms()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="algorithms-loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div id="algorithms-list"></div>
+            </div>
+        </div>
+
+        <!-- Builder Options Reference -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-book"></i> Reference</h5>
+            </div>
+            <div class="card-body">
+                <h6>Available Indicators</h6>
+                <p class="text-muted small" id="ref-indicators"></p>
+                <h6>Conditions</h6>
+                <p class="text-muted small" id="ref-conditions"></p>
+                <h6>Notes</h6>
+                <ul class="text-muted small">
+                    <li>Rules are evaluated top to bottom; first match triggers the action</li>
+                    <li>If no rule matches, the strategy holds</li>
+                    <li>Predefined strategies use standard indicator calculations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentOptions = null;
+let parameters = {};
+let rules = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadOptions();
+    loadAlgorithms();
+});
+
+function loadOptions() {
+    fetch('/api/algorithms/options')
+        .then(response => response.json())
+        .then(data => {
+            currentOptions = data;
+            
+            // Strategy types
+            const typeSelect = document.getElementById('algo-type');
+            data.strategy_types.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type.replace('_', ' ').toUpperCase();
+                typeSelect.appendChild(option);
+            });
+            
+            // Rule indicators
+            const indicatorSelect = document.getElementById('rule-indicator');
+            data.indicators.forEach(ind => {
+                const option = document.createElement('option');
+                option.value = ind;
+                option.textContent = ind.replace('_', ' ').toUpperCase();
+                indicatorSelect.appendChild(option);
+            });
+            
+            // Rule conditions
+            const conditionSelect = document.getElementById('rule-condition');
+            data.conditions.forEach(cond => {
+                const option = document.createElement('option');
+                option.value = cond;
+                option.textContent = cond;
+                conditionSelect.appendChild(option);
+            });
+            
+            // Rule actions
+            const actionSelect = document.getElementById('rule-action');
+            data.actions.forEach(action => {
+                const option = document.createElement('option');
+                option.value = action;
+                option.textContent = action;
+                actionSelect.appendChild(option);
+            });
+            
+            // Reference
+            document.getElementById('ref-indicators').textContent = data.indicators.join(', ');
+            document.getElementById('ref-conditions').textContent = data.conditions.join(', ');
+        })
+        .catch(err => console.error('Error loading options:', err));
+}
+
+function toggleRules() {
+    const type = document.getElementById('algo-type').value;
+    const isRuleBased = type === 'rule_based';
+    document.getElementById('rules-section').style.display = isRuleBased ? 'block' : 'none';
+    document.getElementById('parameters-section').style.display = isRuleBased ? 'none' : 'block';
+}
+
+function addParameter() {
+    const name = document.getElementById('param-name').value.trim();
+    const value = document.getElementById('param-value').value;
+    
+    if (!name || value === '') {
+        alert('Please enter parameter name and value');
+        return;
+    }
+    
+    parameters[name] = parseFloat(value);
+    document.getElementById('param-name').value = '';
+    document.getElementById('param-value').value = '';
+    renderParameters();
+}
+
+function removeParameter(name) {
+    delete parameters[name];
+    renderParameters();
+}
+
+function renderParameters() {
+    const container = document.getElementById('parameters-list');
+    if (Object.keys(parameters).length === 0) {
+        container.innerHTML = '<p class="text-muted small">No parameters added</p>';
+        return;
+    }
+    
+    let html = '';
+    Object.entries(parameters).forEach(([name, value]) => {
+        html += `
+            <span class="badge bg-secondary me-2 mb-2">
+                ${name}: ${value}
+                <button class="btn-close btn-close-white ms-1" style="font-size: 0.6em;" onclick="removeParameter('${name}')"></button>
+            </span>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function addRule() {
+    const indicator = document.getElementById('rule-indicator').value;
+    const condition = document.getElementById('rule-condition').value;
+    const value = document.getElementById('rule-value').value;
+    const action = document.getElementById('rule-action').value;
+    
+    if (value === '') {
+        alert('Please enter a value for the rule');
+        return;
+    }
+    
+    rules.push({
+        indicator: indicator,
+        condition: condition,
+        value: parseFloat(value),
+        action: action,
+    });
+    
+    document.getElementById('rule-value').value = '';
+    renderRules();
+}
+
+function removeRule(index) {
+    rules.splice(index, 1);
+    renderRules();
+}
+
+function renderRules() {
+    const container = document.getElementById('rules-list');
+    if (rules.length === 0) {
+        container.innerHTML = '<p class="text-muted small">No rules added</p>';
+        return;
+    }
+    
+    let html = '';
+    rules.forEach((rule, i) => {
+        html += `
+            <div class="d-flex align-items-center border rounded p-2 mb-2">
+                <span class="badge bg-primary me-2">${i + 1}</span>
+                <span>IF <strong>${rule.indicator}</strong> ${rule.condition} <strong>${rule.value}</strong> THEN <strong>${rule.action}</strong></span>
+                <button class="btn btn-sm btn-outline-danger ms-auto" onclick="removeRule(${i})">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function saveAlgorithm() {
+    const name = document.getElementById('algo-name').value.trim();
+    const description = document.getElementById('algo-description').value.trim();
+    const strategyType = document.getElementById('algo-type').value;
+    
+    if (!name) {
+        showSaveResult('Please enter an algorithm name', 'danger');
+        return;
+    }
+    
+    const isRuleBased = strategyType === 'rule_based';
+    
+    if (isRuleBased && rules.length === 0) {
+        showSaveResult('Rule-based strategies need at least one rule', 'danger');
+        return;
+    }
+    
+    fetch('/api/algorithms/create', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            name: name,
+            description: description,
+            strategy_type: strategyType,
+            parameters: isRuleBased ? {} : parameters,
+            rules: isRuleBased ? rules : [],
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSaveResult(data.message, 'success');
+            document.getElementById('algo-name').value = '';
+            document.getElementById('algo-description').value = '';
+            parameters = {};
+            rules = [];
+            renderParameters();
+            renderRules();
+            loadAlgorithms();
+        } else {
+            showSaveResult(data.error || 'Save failed', 'danger');
+        }
+    })
+    .catch(err => {
+        console.error('Error saving algorithm:', err);
+        showSaveResult('Error saving algorithm', 'danger');
+    });
+}
+
+function showSaveResult(message, type) {
+    const el = document.getElementById('save-result');
+    el.innerHTML = `<div class="alert alert-${type} py-2 mb-0">${message}</div>`;
+    setTimeout(() => el.innerHTML = '', 5000);
+}
+
+function loadAlgorithms() {
+    fetch('/api/algorithms/list')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('algorithms-loading').style.display = 'none';
+            
+            const container = document.getElementById('algorithms-list');
+            const testSelect = document.getElementById('test-algo');
+            
+            // Update test dropdown
+            testSelect.innerHTML = '';
+            data.algorithms.forEach(algo => {
+                const option = document.createElement('option');
+                option.value = algo.name;
+                option.textContent = algo.name;
+                testSelect.appendChild(option);
+            });
+            
+            if (data.algorithms.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-4">No algorithms saved yet</p>';
+                return;
+            }
+            
+            let html = '';
+            data.algorithms.forEach(algo => {
+                const bt = algo.backtest_results;
+                const btInfo = bt ? 
+                    `<small class="text-muted">Last tested: ${bt.symbol} ${bt.period} | Return: ${bt.total_return}% | Sharpe: ${bt.sharpe_ratio}</small>` :
+                    '<small class="text-muted">Never tested</small>';
+                
+                html += `
+                    <div class="border rounded p-3 mb-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">${algo.name}</h6>
+                                <span class="badge bg-info">${algo.strategy_type}</span>
+                                <p class="text-muted small mb-1 mt-1">${algo.description || 'No description'}</p>
+                                ${btInfo}
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-danger" onclick="deleteAlgorithm('${algo.name}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        })
+        .catch(err => console.error('Error loading algorithms:', err));
+}
+
+function deleteAlgorithm(name) {
+    if (!confirm(`Delete algorithm "${name}"?`)) return;
+    
+    fetch('/api/algorithms/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadAlgorithms();
+        } else {
+            alert(data.error);
+        }
+    })
+    .catch(err => console.error('Error deleting algorithm:', err));
+}
+
+function testAlgorithm() {
+    const name = document.getElementById('test-algo').value;
+    const symbol = document.getElementById('test-symbol').value.toUpperCase();
+    const period = document.getElementById('test-period').value;
+    
+    if (!name || !symbol) {
+        alert('Please select an algorithm and enter a symbol');
+        return;
+    }
+    
+    document.getElementById('test-loading').style.display = 'block';
+    document.getElementById('test-results').style.display = 'none';
+    
+    fetch('/api/algorithms/test', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            name: name,
+            symbol: symbol,
+            period: period,
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('test-loading').style.display = 'none';
+        
+        if (!data.success) {
+            alert(data.error || 'Test failed');
+            return;
+        }
+        
+        displayTestResults(data.result);
+        document.getElementById('test-results').style.display = 'block';
+        loadAlgorithms();
+    })
+    .catch(err => {
+        console.error('Error testing algorithm:', err);
+        document.getElementById('test-loading').style.display = 'none';
+        alert('Error testing algorithm');
+    });
+}
+
+function displayTestResults(result) {
+    const metricsHtml = `
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Total Return</small>
+                    <h6 class="${result.total_return >= 0 ? 'text-success' : 'text-danger'} mb-0">${result.total_return}%</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Sharpe</small>
+                    <h6 class="mb-0">${result.sharpe_ratio}</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Max DD</small>
+                    <h6 class="text-danger mb-0">${result.max_drawdown}%</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Win Rate</small>
+                    <h6 class="mb-0">${result.win_rate}%</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Trades</small>
+                    <h6 class="mb-0">${result.total_trades}</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">vs Buy&Hold</small>
+                    <h6 class="${result.outperformance >= 0 ? 'text-success' : 'text-danger'} mb-0">${result.outperformance > 0 ? '+' : ''}${result.outperformance}%</h6>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('test-metrics').innerHTML = metricsHtml;
+    
+    // Equity curve chart
+    const equityData = result.equity_curve;
+    const dates = equityData.map(p => p.date);
+    const equity = equityData.map(p => p.equity);
+    
+    const trace = {
+        x: dates,
+        y: equity,
+        type: 'scatter',
+        mode: 'lines',
+        name: 'Equity',
+        line: {color: '#4e79a7', width: 2}
+    };
+    
+    const layout = {
+        height: 300,
+        margin: {t: 10, b: 40, l: 60, r: 20},
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: {color: '#e0e0e0'},
+        xaxis: {title: 'Date', gridcolor: '#333'},
+        yaxis: {title: 'Equity ($)', gridcolor: '#333'}
+    };
+    
+    Plotly.newPlot('test-chart', [trace], layout, {responsive: true});
+}
+</script>
+{% endblock %}

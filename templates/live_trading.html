@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+
+{% block title %}Live Trading - QuantStock{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="bi bi-broadcast"></i> Live Trading Engine</h1>
+        <p class="text-muted">Deploy strategies for paper trading with real-time signal execution</p>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card bg-primary text-white">
+            <div class="card-body">
+                <h6>Total Equity</h6>
+                <h3 id="total-equity">$0.00</h3>
+                <small id="total-pnl" class="text-white-50">+$0.00 (+0.00%)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card bg-success text-white">
+            <div class="card-body">
+                <h6>Active Strategies</h6>
+                <h3 id="active-strategies">0</h3>
+                <small class="text-white-50">Deployed & Running</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card bg-info text-white">
+            <div class="card-body">
+                <h6>Total Capital</h6>
+                <h3 id="total-capital">$0.00</h3>
+                <small class="text-white-50">Allocated</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card bg-warning text-dark">
+            <div class="card-body">
+                <h6>Engine Status</h6>
+                <h3 id="engine-status">OFFLINE</h3>
+                <small class="text-dark-50" id="last-check">Never checked</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Controls -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-gear"></i> Engine Controls</h5>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-primary" onclick="runChecks()">
+                        <i class="bi bi-play"></i> Run Checks
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadDashboard()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-0">
+                    Click "Run Checks" to evaluate all active strategies against current market data and execute any signals. 
+                    In a production environment, this would run automatically on a schedule.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Deploy New Strategy -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Deploy New Strategy</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="form-label">Strategy Name</label>
+                        <input type="text" id="deploy-name" class="form-control" placeholder="My Strategy">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Symbol</label>
+                        <input type="text" id="deploy-symbol" class="form-control" placeholder="AAPL">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Strategy</label>
+                        <select id="deploy-strategy" class="form-select">
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Capital ($)</label>
+                        <input type="number" id="deploy-capital" class="form-control" value="10000" min="1000">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Stop Loss %</label>
+                        <input type="number" id="deploy-stop-loss" class="form-control" placeholder="Optional (0.05)" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Take Profit %</label>
+                        <input type="number" id="deploy-take-profit" class="form-control" placeholder="Optional (0.15)" step="0.01" min="0">
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <button class="btn btn-primary" onclick="deployStrategy()">
+                            <i class="bi bi-rocket"></i> Deploy Strategy
+                        </button>
+                    </div>
+                </div>
+                <div id="deploy-result" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Deployments -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-collection"></i> Strategy Deployments</h5>
+            </div>
+            <div class="card-body">
+                <div id="deployments-loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading deployments...</p>
+                </div>
+                <div id="deployments-table" class="table-responsive" style="display: none;">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Symbol</th>
+                                <th>Strategy</th>
+                                <th>Status</th>
+                                <th>Capital</th>
+                                <th>Equity</th>
+                                <th>P&L</th>
+                                <th>Position</th>
+                                <th>Last Signal</th>
+                                <th>Trades</th>
+                                <th>Win Rate</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deployments-body">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="no-deployments" class="text-center py-4 text-muted" style="display: none;">
+                    <i class="bi bi-collection display-4"></i>
+                    <p class="mt-2">No strategies deployed yet. Deploy one above to get started.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Logs -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-terminal"></i> Activity Logs</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadLogs()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="logs-container" style="max-height: 300px; overflow-y: auto;">
+                    <p class="text-muted text-center py-4">No activity yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadStrategies();
+    loadDashboard();
+    loadLogs();
+});
+
+function loadStrategies() {
+    fetch('/api/live/strategies')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('deploy-strategy');
+            select.innerHTML = '';
+            data.strategies.forEach(strategy => {
+                const option = document.createElement('option');
+                option.value = strategy;
+                option.textContent = strategy.replace('_', ' ').toUpperCase();
+                select.appendChild(option);
+            });
+        })
+        .catch(err => console.error('Error loading strategies:', err));
+}
+
+function loadDashboard() {
+    // Load summary
+    fetch('/api/live/summary')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-equity').textContent = '$' + data.total_equity.toLocaleString();
+            document.getElementById('total-capital').textContent = '$' + data.total_capital.toLocaleString();
+            document.getElementById('active-strategies').textContent = data.active_deployments;
+            
+            const pnlEl = document.getElementById('total-pnl');
+            pnlEl.textContent = (data.total_pnl >= 0 ? '+' : '') + '$' + data.total_pnl.toLocaleString() + 
+                ' (' + (data.total_pnl_pct >= 0 ? '+' : '') + data.total_pnl_pct + '%)';
+            pnlEl.className = data.total_pnl >= 0 ? 'text-white-50' : 'text-danger';
+            
+            const statusEl = document.getElementById('engine-status');
+            statusEl.textContent = data.active ? 'ONLINE' : 'OFFLINE';
+            statusEl.className = data.active ? 'text-success' : 'text-danger';
+            
+            document.getElementById('last-check').textContent = 
+                data.last_check ? 'Last: ' + data.last_check.slice(0, 19).replace('T', ' ') : 'Never checked';
+        })
+        .catch(err => console.error('Error loading summary:', err));
+    
+    // Load deployments
+    fetch('/api/live/deployments')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('deployments-body');
+            tbody.innerHTML = '';
+            
+            document.getElementById('deployments-loading').style.display = 'none';
+            
+            if (data.deployments.length === 0) {
+                document.getElementById('no-deployments').style.display = 'block';
+                document.getElementById('deployments-table').style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('no-deployments').style.display = 'none';
+            document.getElementById('deployments-table').style.display = 'block';
+            
+            data.deployments.forEach(d => {
+                const row = document.createElement('tr');
+                const pnlClass = d.pnl >= 0 ? 'text-success' : 'text-danger';
+                const statusClass = d.status === 'ACTIVE' ? 'bg-success' : 'bg-secondary';
+                
+                row.innerHTML = `
+                    <td><strong>${d.name}</strong></td>
+                    <td>${d.symbol}</td>
+                    <td><span class="badge bg-info">${d.strategy}</span></td>
+                    <td><span class="badge ${statusClass}">${d.status}</span></td>
+                    <td>$${d.capital.toLocaleString()}</td>
+                    <td>$${d.current_equity.toLocaleString()}</td>
+                    <td class="${pnlClass}">${d.pnl >= 0 ? '+' : ''}$${d.pnl.toLocaleString()} (${d.pnl_pct >= 0 ? '+' : ''}${d.pnl_pct}%)</td>
+                    <td>${d.shares > 0 ? d.shares + ' shares' : 'None'}</td>
+                    <td><span class="badge ${d.last_signal === 'BUY' ? 'bg-success' : d.last_signal === 'SELL' ? 'bg-danger' : 'bg-secondary'}">${d.last_signal}</span></td>
+                    <td>${d.total_trades}</td>
+                    <td>${d.win_rate}%</td>
+                    <td>
+                        ${d.status === 'ACTIVE' ? 
+                            `<button class="btn btn-sm btn-outline-warning" onclick="stopStrategy('${d.name}')">Stop</button>` : 
+                            ''}
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeStrategy('${d.name}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(err => console.error('Error loading deployments:', err));
+}
+
+function deployStrategy() {
+    const name = document.getElementById('deploy-name').value.trim();
+    const symbol = document.getElementById('deploy-symbol').value.trim().toUpperCase();
+    const strategy = document.getElementById('deploy-strategy').value;
+    const capital = parseFloat(document.getElementById('deploy-capital').value);
+    const stopLoss = document.getElementById('deploy-stop-loss').value;
+    const takeProfit = document.getElementById('deploy-take-profit').value;
+    
+    if (!name || !symbol || !capital) {
+        showDeployResult('Please fill in name, symbol, and capital', 'danger');
+        return;
+    }
+    
+    fetch('/api/live/deploy', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            name: name,
+            symbol: symbol,
+            strategy: strategy,
+            capital: capital,
+            stop_loss: stopLoss ? parseFloat(stopLoss) : null,
+            take_profit: takeProfit ? parseFloat(takeProfit) : null,
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showDeployResult(data.message, 'success');
+            // Clear form
+            document.getElementById('deploy-name').value = '';
+            document.getElementById('deploy-symbol').value = '';
+            document.getElementById('deploy-stop-loss').value = '';
+            document.getElementById('deploy-take-profit').value = '';
+            loadDashboard();
+            loadLogs();
+        } else {
+            showDeployResult(data.error || 'Deploy failed', 'danger');
+        }
+    })
+    .catch(err => {
+        console.error('Error deploying strategy:', err);
+        showDeployResult('Error deploying strategy', 'danger');
+    });
+}
+
+function showDeployResult(message, type) {
+    const el = document.getElementById('deploy-result');
+    el.innerHTML = `<div class="alert alert-${type} mb-0">${message}</div>`;
+    setTimeout(() => el.innerHTML = '', 5000);
+}
+
+function stopStrategy(name) {
+    fetch('/api/live/stop', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadDashboard();
+        } else {
+            alert(data.error);
+        }
+    })
+    .catch(err => console.error('Error stopping strategy:', err));
+}
+
+function removeStrategy(name) {
+    if (!confirm(`Remove strategy "${name}"? This cannot be undone.`)) return;
+    
+    fetch('/api/live/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadDashboard();
+            loadLogs();
+        } else {
+            alert(data.error);
+        }
+    })
+    .catch(err => console.error('Error removing strategy:', err));
+}
+
+function runChecks() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running...';
+    
+    fetch('/api/live/run_checks', {method: 'POST'})
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            loadDashboard();
+            loadLogs();
+        })
+        .catch(err => console.error('Error running checks:', err))
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-play"></i> Run Checks';
+        });
+}
+
+function loadLogs() {
+    fetch('/api/live/logs?limit=50')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('logs-container');
+            
+            if (data.logs.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-4">No activity yet</p>';
+                return;
+            }
+            
+            let html = '';
+            data.logs.forEach(log => {
+                html += `
+                    <div class="d-flex justify-content-between border-bottom py-2">
+                        <div>
+                            <small class="text-muted">[${log.timestamp.slice(0, 19).replace('T', ' ')}]</small>
+                            ${log.strategy ? `<span class="badge bg-info me-2">${log.strategy}</span>` : ''}
+                            ${log.message}
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        })
+        .catch(err => console.error('Error loading logs:', err));
+}
+</script>
+{% endblock %}
