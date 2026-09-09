@@ -31,6 +31,7 @@ from portfolio import PortfolioManager
 from optimizer import PortfolioOptimizer
 from live_trading import LiveTradingEngine
 from algorithm_editor import AlgorithmEditor
+from search_engine import BraveSearchEngine
 
 app = Flask(__name__)
 
@@ -43,6 +44,7 @@ portfolio_manager = PortfolioManager(data_provider)
 optimizer = PortfolioOptimizer(data_provider)
 live_trading = LiveTradingEngine(data_provider)
 algorithm_editor = AlgorithmEditor(data_provider)
+search_engine = BraveSearchEngine()
 
 
 # ==================== PAGE ROUTES ====================
@@ -453,6 +455,76 @@ def api_search():
         return jsonify({'results': []})
     results = data_provider.search_symbols(query)
     return jsonify({'results': results})
+
+
+# ==================== BRAVE SEARCH API ====================
+
+@app.route('/api/brave/web-search', methods=['GET'])
+def api_brave_web_search():
+    """Execute a web search using Brave Search API."""
+    query = request.args.get('q', '')
+    count = request.args.get('count', 10, type=int)
+    offset = request.args.get('offset', 0, type=int)
+
+    if not query:
+        return jsonify({'error': 'Query parameter "q" is required'}), 400
+
+    data = search_engine.web_search(query, count=count, offset=offset)
+    results = search_engine.format_web_results(data)
+    return jsonify({'results': results, 'query': query})
+
+
+@app.route('/api/brave/local-search', methods=['GET'])
+def api_brave_local_search():
+    """Execute a local search using Brave Search API."""
+    query = request.args.get('q', '')
+    count = request.args.get('count', 10, type=int)
+
+    if not query:
+        return jsonify({'error': 'Query parameter "q" is required'}), 400
+
+    data = search_engine.local_search(query, count=count)
+    results = search_engine.format_local_results(data)
+    return jsonify({'results': results, 'query': query})
+
+
+@app.route('/api/brave/stock-news', methods=['GET'])
+def api_brave_stock_news():
+    """Search for news about a specific stock."""
+    symbol = request.args.get('symbol', '')
+    count = request.args.get('count', 10, type=int)
+
+    if not symbol:
+        return jsonify({'error': 'Symbol parameter is required'}), 400
+
+    results = search_engine.search_stock_news(symbol, count=count)
+    return jsonify({'results': results, 'symbol': symbol})
+
+
+@app.route('/api/brave/market-analysis', methods=['GET'])
+def api_brave_market_analysis():
+    """Search for market analysis and insights."""
+    query = request.args.get('q', '')
+    count = request.args.get('count', 10, type=int)
+
+    if not query:
+        return jsonify({'error': 'Query parameter "q" is required'}), 400
+
+    results = search_engine.search_market_analysis(query, count=count)
+    return jsonify({'results': results, 'query': query})
+
+
+@app.route('/api/brave/company-info', methods=['GET'])
+def api_brave_company_info():
+    """Search for company information."""
+    company = request.args.get('company', '')
+    count = request.args.get('count', 5, type=int)
+
+    if not company:
+        return jsonify({'error': 'Company parameter is required'}), 400
+
+    results = search_engine.search_company_info(company, count=count)
+    return jsonify({'results': results, 'company': company})
 
 
 @app.route('/api/universes')
