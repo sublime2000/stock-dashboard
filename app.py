@@ -998,6 +998,25 @@ def api_algorithms_options():
     return jsonify(options)
 
 
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint for Render deployment."""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'quantstock-dashboard',
+        'components': [
+            'Stock Screening',
+            'Automated Research',
+            'Data Dashboard',
+            'Backtesting',
+            'Portfolio Management',
+            'Portfolio Optimization',
+            'Live Trading',
+            'Algorithm Editor'
+        ]
+    })
+
+
 # ==================== ERROR HANDLERS ====================
 
 @app.errorhandler(404)
