@@ -85,7 +85,12 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="bi bi-table"></i> Screening Results</h5>
-                <span id="result-count" class="badge bg-primary">0 stocks found</span>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-success btn-sm" onclick="exportResults()" id="export-btn-header" disabled>
+                        <i class="bi bi-download"></i> Export CSV
+                    </button>
+                    <span id="result-count" class="badge bg-primary">0 stocks found</span>
+                </div>
             </div>
             <div class="card-body">
                 <div id="screener-loading" class="text-center py-4" style="display: none;">
@@ -169,6 +174,7 @@ function runScreener() {
         // Show export button if results exist
         if (data.count > 0) {
             document.getElementById('export-btn').disabled = false;
+            document.getElementById('export-btn-header').disabled = false;
         }
         
         data.stocks.forEach(stock => {
@@ -274,6 +280,7 @@ function resetForm() {
     document.getElementById('screener-placeholder').style.display = 'block';
     document.getElementById('result-count').textContent = '0 stocks found';
     document.getElementById('export-btn').disabled = true;
+    document.getElementById('export-btn-header').disabled = true;
     screeningResults = [];
 }
 </script>
