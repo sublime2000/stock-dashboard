@@ -68,7 +68,7 @@
                             <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
                                 <i class="bi bi-arrow-counterclockwise"></i> Reset
                             </button>
-                            <button type="button" class="btn btn-success" onclick="exportResults()" id="export-btn" style="display: none;">
+                            <button type="button" class="btn btn-success" onclick="exportResults()" id="export-btn" disabled>
                                 <i class="bi bi-download"></i> Export CSV
                             </button>
                         </div>
@@ -168,7 +168,7 @@ function runScreener() {
         
         // Show export button if results exist
         if (data.count > 0) {
-            document.getElementById('export-btn').style.display = 'inline-block';
+            document.getElementById('export-btn').disabled = false;
         }
         
         data.stocks.forEach(stock => {
@@ -273,7 +273,7 @@ function resetForm() {
     document.getElementById('screener-results').style.display = 'none';
     document.getElementById('screener-placeholder').style.display = 'block';
     document.getElementById('result-count').textContent = '0 stocks found';
-    document.getElementById('export-btn').style.display = 'none';
+    document.getElementById('export-btn').disabled = true;
     screeningResults = [];
 }
 </script>
